@@ -98,10 +98,13 @@ This is deliberate — students have no accounts, so there's no user identity fo
 ### Cloudinary for files
 
 - Netlify functions are stateless and can't write to disk.
-- Students upload **directly to Cloudinary** with an unsigned preset, so a 4MB screenshot never passes through a Netlify function (which has a small request-body limit and would fail).
 - Free tier (~25GB) is far beyond a few hundred registrations, with automatic image optimization for banners.
 
-Setup: unsigned preset `event_uploads` (images only, 5MB cap, auto-compress, folder `s4ds/registrations/`); certificate PDFs uploaded **server-side with the API secret** as `resource_type: 'raw'`. Still compress client-side (canvas resize to ~1200px) before upload — faster on venue wifi.
+**Uploads are signed, not unsigned.** An unsigned preset name is visible in the browser bundle, so anyone reading the JS can upload arbitrary files into the account. Screenshots go through `POST /api/upload`, which signs with the API secret ([`src/lib/cloudinary.ts`](../src/lib/cloudinary.ts)). The client compresses to ~1200px first, so payloads are ~200KB — well inside Netlify's request-body limit, and faster on venue wifi.
+
+**Payment proofs are `type: 'authenticated'`.** These are photos of people's payment apps; a guessable public URL would be a privacy leak. What's stored in `registrations.payment_proof_url` is a **Cloudinary public_id**, not a URL — call `getPaymentProofUrl()` to get a signed link for the admin table.
+
+Certificate PDFs are also uploaded server-side, as `resource_type: 'raw'`.
 
 Since we're on Supabase, **Supabase Storage** is a reasonable alternative that would cut one vendor. It's a smaller free tier (~1GB) with no on-the-fly image transforms. Worth revisiting if managing two accounts becomes annoying; not worth changing mid-build.
 
@@ -123,7 +126,6 @@ There's no form-builder UI and no `form_fields` table. Each event's `form_key` p
 ```ts
 export const FORMS = {
   'kjsit-student': [
-    { key: 'roll_number', label: 'Roll Number', type: 'text', required: true },
     { key: 'department',  label: 'Department',  type: 'select', required: true,
       options: ['AIDS', 'COMPS', 'IT', 'EXTC', 'MECH', 'ETRX'] },
     // ...

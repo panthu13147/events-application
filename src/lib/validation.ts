@@ -114,7 +114,12 @@ export const registrationBaseSchema = z.object({
   email: z.email("Enter a valid email address").toLowerCase(),
   phone: phoneSchema.optional(),
   answers: z.record(z.string(), z.unknown()).default({}),
-  payment_proof_url: z.url().optional(),
+  /**
+   * Despite the column name, this holds a Cloudinary **public_id**, not a URL —
+   * the asset is uploaded as `type: "authenticated"` and only serves through a
+   * signed link. Use getPaymentProofUrl() to render it.
+   */
+  payment_proof_url: z.string().trim().min(1).max(300).optional(),
 });
 
 export const ticketRetrieveSchema = z.object({

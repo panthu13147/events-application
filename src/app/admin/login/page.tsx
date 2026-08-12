@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
-export const metadata = { title: "Sign in — S4DS Events" };
+export const metadata = { title: "Sign in" };
 
 export default async function LoginPage({
   searchParams,

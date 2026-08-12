@@ -38,7 +38,7 @@ export async function POST(
 
   const { data: event, error: eventError } = await db
     .from("events")
-    .select("id, form_key, requires_payment")
+    .select("id, form_key, requires_payment, capacity")
     .eq("slug", slug)
     .eq("status", "PUBLISHED")
     .maybeSingle();
@@ -73,7 +73,26 @@ export async function POST(
     );
   }
 
-  if (event.requires_payment && !base.data.payment_proof_url) {
+  // Waitlisted people don't pay. Asking for a deposit to *maybe* get a seat is
+  // a bad deal and creates refunds for everyone who never gets promoted — so
+  // the deposit is collected when they're promoted, not now.
+  //
+  // The seat count can change between this check and the insert. The RPC has
+  // the final say on status, so the worst case is someone who paid lands on the
+  // waitlist, or someone gets a seat without a proof. The latter shows up as
+  // "no proof" in the approvals list, where an admin sees it before approving.
+  let waitlisting = false;
+  if (event.capacity !== null) {
+    const { count } = await db
+      .from("registrations")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", event.id)
+      .in("status", ["PENDING", "APPROVED"]);
+
+    waitlisting = (count ?? 0) >= event.capacity;
+  }
+
+  if (event.requires_payment && !waitlisting && !base.data.payment_proof_url) {
     return NextResponse.json(
       { error: "Upload a screenshot of your payment to continue." },
       { status: 400 },

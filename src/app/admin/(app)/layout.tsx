@@ -5,9 +5,14 @@ import { hasRole } from "@/lib/session";
 import { LogoutButton } from "./LogoutButton";
 
 /**
- * Middleware already redirects unauthenticated users, but this layout also
- * covers the case where middleware is bypassed or the cookie expires between
- * requests. Cheap, and it gives us the session for the nav anyway.
+ * The signed-in admin shell.
+ *
+ * It lives in an `(app)` route group specifically so it does NOT wrap
+ * /admin/login. When the login page was inside this layout, the redirect below
+ * fired on the login page itself and bounced it to /admin/login forever.
+ *
+ * The proxy already redirects unauthenticated users; this covers the cookie
+ * expiring between requests, and gives us the session for the nav anyway.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -24,15 +29,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
 
           <nav className="flex flex-1 items-center gap-4 text-sm text-muted-foreground">
+            {/* Registrations aren't a top-level destination — they belong to an
+                event, so you reach them by opening one. */}
             {isAdmin ? (
-              <>
-                <Link href="/admin" className="hover:text-foreground">
-                  Events
-                </Link>
-                <Link href="/admin/registrations" className="hover:text-foreground">
-                  Registrations
-                </Link>
-              </>
+              <Link href="/admin" className="hover:text-foreground">
+                Events
+              </Link>
             ) : null}
             <Link href="/admin/scan" className="hover:text-foreground">
               Scanner

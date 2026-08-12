@@ -12,25 +12,37 @@ export type EventWithDays = Event & {
   days: EventDay[];
   spots_left: number | null;
   registration_open: boolean;
+  /** Full — new registrations join the waitlist instead of taking a seat. */
+  waitlisting: boolean;
 };
 
-/** Spots are held by everyone except rejected and cancelled registrations. */
+/**
+ * Only PENDING and APPROVED hold a seat.
+ *
+ * WAITLISTED deliberately does not, which is what lets rejecting or deleting an
+ * approved registration genuinely free one up for promotion. Kept in sync with
+ * register_for_event() in supabase/migrations/0004_waitlist.sql — if you change
+ * one, change the other or the page will disagree with the database.
+ */
 async function takenSpots(eventId: string): Promise<number> {
   const { count, error } = await db
     .from("registrations")
     .select("id", { count: "exact", head: true })
     .eq("event_id", eventId)
-    .not("status", "in", "(REJECTED,CANCELLED)");
+    .in("status", ["PENDING", "APPROVED"]);
 
   if (error) throw error;
   return count ?? 0;
 }
 
-export function isRegistrationOpen(event: Event, spotsLeft: number | null, now = new Date()) {
+/**
+ * Being full no longer closes registration — it switches to a waitlist. Only
+ * the publish status and the date window close it.
+ */
+export function isRegistrationOpen(event: Event, _spotsLeft: number | null, now = new Date()) {
   if (event.status !== "PUBLISHED") return false;
   if (event.registration_opens_at && now < new Date(event.registration_opens_at)) return false;
   if (event.registration_closes_at && now > new Date(event.registration_closes_at)) return false;
-  if (spotsLeft !== null && spotsLeft <= 0) return false;
   return true;
 }
 
@@ -61,6 +73,7 @@ export async function getEventBySlug(slug: string): Promise<EventWithDays | null
     days: days ?? [],
     spots_left,
     registration_open: isRegistrationOpen(event, spots_left),
+    waitlisting: spots_left !== null && spots_left <= 0,
   };
 }
 
@@ -116,6 +129,14 @@ export async function getHomepageEvents(): Promise<HomepageEvents> {
   // Most recent first reads better for a list of things that already happened.
   result.past.reverse();
   return result;
+}
+
+/**
+ * Events the scanner should still offer: anything that hasn't finished, plus a
+ * day of slack so a late-running event stays scannable past midnight.
+ */
+export function scannableSince(): string {
+  return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 }
 
 /** 10000 -> "₹100" */

@@ -70,8 +70,8 @@ async function main() {
           registration_closes_at: "2026-08-19T23:59:00+05:30",
           requires_payment: true,
           fee_amount: 10_000, // 100 rupees, in paise
-          // Drop your UPI QR image at public/payment-qr.jpg
-          payment_qr_url: "/payment-qr.jpg",
+          // Drop your UPI QR image at public/payment-qr.svg
+          payment_qr_url: "/payment-qr.svg",
           // Paid event: a human checks each payment screenshot before approving.
           auto_approve: false,
           certificate_enabled: true,
@@ -135,7 +135,7 @@ async function main() {
   console.log(`  Scanner     : /admin/scan`);
   console.log(`\nDay 1: ${DAY_1_START}  ->  ${DAY_1_END}`);
   console.log(`Day 2: ${DAY_2_START}  ->  ${DAY_2_END}`);
-  console.log("\nRemember to put your UPI QR image at public/payment-qr.jpg");
+  console.log("\nRemember to put your UPI QR image at public/payment-qr.svg");
 }
 
 main().catch((error) => {

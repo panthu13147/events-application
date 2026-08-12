@@ -1,10 +1,10 @@
 import { db } from "@/lib/supabase";
-import { formatDayDate } from "@/lib/events";
+import { formatDayDate, scannableSince } from "@/lib/events";
 import { ScannerClient } from "./ScannerClient";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Scanner — S4DS Events" };
+export const metadata = { title: "Scanner" };
 
 export default async function ScanPage() {
   // Only days from events that haven't finished — a volunteer should never be
@@ -13,7 +13,7 @@ export default async function ScanPage() {
     .from("events")
     .select("id, title, ends_at")
     .eq("status", "PUBLISHED")
-    .gte("ends_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .gte("ends_at", scannableSince())
     .order("starts_at", { ascending: true });
 
   if (error) throw error;

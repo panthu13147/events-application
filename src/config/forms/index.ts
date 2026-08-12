@@ -17,13 +17,6 @@ export const FORMS = {
   /** Internal KJSIT event — students only */
   "kjsit-student": [
     {
-      key: "roll_number",
-      label: "Roll Number",
-      type: "text",
-      required: true,
-      placeholder: "e.g. 101",
-    },
-    {
       key: "department",
       label: "Department",
       type: "select",
@@ -80,13 +73,6 @@ export const FORMS = {
    *  - python_comfort -> pairing beginners with people who can help
    */
   "ai-agents-workshop": [
-    {
-      key: "roll_number",
-      label: "Roll Number",
-      type: "text",
-      required: true,
-      placeholder: "e.g. 101",
-    },
     {
       key: "department",
       label: "Department",

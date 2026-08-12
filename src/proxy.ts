@@ -10,8 +10,16 @@ import { SESSION_COOKIE, hasRole, verifySession } from "@/lib/session";
  * This is a redirect convenience, not the authorization boundary. Every admin
  * route handler re-checks with requireRole().
  */
+/** Reachable without a session, or signing in would redirect to itself. */
+const PUBLIC_ADMIN_PATHS = new Set(["/admin/login"]);
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Excluded here rather than in `matcher`. A negative lookahead in the matcher
+  // does not survive Next's path-to-regexp compilation, so /admin/login matched
+  // anyway and redirected to itself forever.
+  if (PUBLIC_ADMIN_PATHS.has(pathname)) return NextResponse.next();
 
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
 
@@ -34,6 +42,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // /admin/login is excluded, otherwise signing in would redirect to itself.
-  matcher: ["/admin/((?!login).*)", "/admin"],
+  // Match everything under /admin; PUBLIC_ADMIN_PATHS above does the excluding.
+  matcher: ["/admin", "/admin/:path*"],
 };

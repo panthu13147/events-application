@@ -265,7 +265,6 @@ async function main() {
   await seedRegistrations(llm, 18, (i) => ({
     status: i < 12 ? "APPROVED" : i < 17 ? "PENDING" : "REJECTED",
     answers: {
-      roll_number: String(101 + i),
       department: pick(["AIDS", "COMPS", "IT", "EXTC"]),
       year: pick(["SE", "TE", "BE"]),
       division: pick(["A", "B", "C"]),

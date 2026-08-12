@@ -1,9 +1,13 @@
 "use client";
 
 import type { FieldDef } from "@/lib/form-types";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  BrandInput,
+  BrandLabel,
+  BrandSelect,
+  BrandTextarea,
+  Req,
+} from "@/components/s4ds";
 
 /**
  * Renders one question from the form registry.
@@ -11,6 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
  * Values are held by the parent so the whole form is one controlled object
  * keyed by `field.key` — which is exactly the shape stored in
  * `registrations.answers`.
+ *
+ * Styling comes from the S4DS brand primitives: this only ever renders inside
+ * the public registration form, which sits on a bone panel.
  */
 export function FieldRenderer({
   field,
@@ -28,36 +35,55 @@ export function FieldRenderer({
     .filter(Boolean)
     .join(" ");
 
+  // Checkboxes carry their own label text, so a separate heading would say the
+  // same thing twice.
+  const standalone = field.type === "checkbox";
+
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>
-        {field.label}
-        {field.required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </Label>
+    <div>
+      {standalone ? null : (
+        <BrandLabel htmlFor={id}>
+          {field.label}
+          {field.required ? <Req /> : null}
+        </BrandLabel>
+      )}
 
       {field.hint ? (
-        <p id={`${id}-hint`} className="text-xs leading-relaxed text-muted-foreground">
+        <p
+          id={`${id}-hint`}
+          className="mt-1 max-w-[62ch] text-xs leading-relaxed text-[var(--s4ds-ink-invert-dim)]"
+        >
           {field.hint}
         </p>
       ) : null}
 
-      <FieldInput
-        id={id}
-        field={field}
-        value={value}
-        onChange={onChange}
-        describedBy={describedBy || undefined}
-        invalid={Boolean(error)}
-      />
+      <div className={standalone ? "" : "mt-2"}>
+        <FieldInput
+          id={id}
+          field={field}
+          value={value}
+          onChange={onChange}
+          describedBy={describedBy || undefined}
+          invalid={Boolean(error)}
+        />
+      </div>
 
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="mt-1.5 text-sm font-bold text-[var(--s4ds-orange)]"
+        >
           {error}
         </p>
       ) : null}
     </div>
   );
 }
+
+/** Selectable option row: a full black edge and a yellow fill when chosen. */
+const OPTION_BASE =
+  "flex cursor-pointer items-start gap-3 rounded-[var(--s4ds-r-sm)] border-2 px-3.5 py-3 text-sm transition-colors duration-150";
 
 function FieldInput({
   id,
@@ -83,9 +109,8 @@ function FieldInput({
   switch (field.type) {
     case "select":
       return (
-        <select
+        <BrandSelect
           {...common}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive"
           value={typeof value === "string" ? value : ""}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -95,19 +120,26 @@ function FieldInput({
               {option}
             </option>
           ))}
-        </select>
+        </BrandSelect>
       );
 
     case "radio":
       return (
-        <div role="radiogroup" aria-describedby={describedBy} className="space-y-2 pt-1">
+        <div
+          role="radiogroup"
+          aria-describedby={describedBy}
+          aria-label={field.label}
+          className="space-y-2"
+        >
           {field.options?.map((option) => {
             const checked = value === option;
             return (
               <label
                 key={option}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                  checked ? "border-foreground/40 bg-accent" : "hover:bg-accent/50"
+                className={`${OPTION_BASE} ${
+                  checked
+                    ? "border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_35%,transparent)] font-bold"
+                    : "border-[var(--s4ds-ink-invert)]/25 hover:border-[var(--s4ds-edge)] hover:bg-[var(--s4ds-ink-invert)]/5"
                 }`}
               >
                 <input
@@ -116,7 +148,7 @@ function FieldInput({
                   value={option}
                   checked={checked}
                   onChange={() => onChange(option)}
-                  className="mt-0.5 size-4 shrink-0 accent-foreground"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--s4ds-orange)]"
                 />
                 <span>{option}</span>
               </label>
@@ -127,21 +159,30 @@ function FieldInput({
 
     case "checkbox":
       return (
-        <label className="flex cursor-pointer items-start gap-3 text-sm">
+        <label
+          className={`${OPTION_BASE} ${
+            value === true
+              ? "border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_35%,transparent)] font-bold"
+              : "border-[var(--s4ds-ink-invert)]/25 hover:border-[var(--s4ds-edge)] hover:bg-[var(--s4ds-ink-invert)]/5"
+          }`}
+        >
           <input
             {...common}
             type="checkbox"
             checked={value === true}
             onChange={(event) => onChange(event.target.checked)}
-            className="mt-0.5 size-4 shrink-0 accent-foreground"
+            className="mt-0.5 size-4 shrink-0 accent-[var(--s4ds-orange)]"
           />
-          <span>{field.placeholder ?? field.label}</span>
+          <span>
+            {field.placeholder ?? field.label}
+            {field.required ? <Req /> : null}
+          </span>
         </label>
       );
 
     case "textarea":
       return (
-        <Textarea
+        <BrandTextarea
           {...common}
           value={typeof value === "string" ? value : ""}
           placeholder={field.placeholder}
@@ -151,7 +192,7 @@ function FieldInput({
 
     default:
       return (
-        <Input
+        <BrandInput
           {...common}
           type={field.type === "number" ? "number" : field.type === "phone" ? "tel" : field.type}
           value={typeof value === "string" || typeof value === "number" ? String(value) : ""}
