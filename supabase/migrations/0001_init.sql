@@ -1,0 +1,226 @@
+-- S4DS Events — initial schema
+-- Run this in the Supabase SQL Editor (or `supabase db push` with the CLI).
+--
+-- FROZEN after Phase 0. Need a column? Ask the lead — new migrations get a new
+-- numbered file, this one is never edited once it has been applied.
+
+-- ---------------------------------------------------------------------------
+-- Enums
+-- ---------------------------------------------------------------------------
+
+create type event_status as enum ('DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED');
+create type reg_status   as enum ('PENDING', 'APPROVED', 'REJECTED', 'WAITLISTED', 'CANCELLED');
+-- SCANNER = event-day volunteer. Can open the scanner and nothing else.
+create type admin_role   as enum ('OWNER', 'ADMIN', 'SCANNER');
+create type job_status   as enum ('QUEUED', 'SENDING', 'SENT', 'FAILED');
+
+-- ---------------------------------------------------------------------------
+-- updated_at trigger
+-- ---------------------------------------------------------------------------
+
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- events
+-- ---------------------------------------------------------------------------
+
+create table events (
+  id uuid primary key default gen_random_uuid(),
+
+  -- Lives at the ROOT of the site: 'llm-masterclass' -> /llm-masterclass.
+  -- Must never collide with a real route — see src/lib/reserved-slugs.ts
+  slug        text not null unique,
+  title       text not null,
+  tagline     text,
+  description text,                     -- markdown
+  venue       text,
+  banner_url  text,                     -- Cloudinary
+
+  -- Key into the FORMS registry in src/config/forms. The extra questions this
+  -- event asks live in code, not in the database.
+  form_key text not null default 'kjsit-student',
+
+  starts_at timestamptz not null,
+  ends_at   timestamptz not null,
+  capacity  integer,                    -- null = unlimited
+  status    event_status not null default 'DRAFT',
+
+  registration_opens_at  timestamptz,
+  registration_closes_at timestamptz,
+
+  requires_payment boolean not null default false,
+  fee_amount       integer,             -- paise. 250 rupees = 25000. Never a float.
+  payment_qr_url   text,                -- UPI QR (Cloudinary)
+  -- false = every registration starts PENDING and an admin approves it
+  auto_approve     boolean not null default true,
+
+  certificate_enabled      boolean not null default false,
+  certificate_template_url text,
+  certificate_config       jsonb,       -- { name: { x, y, size }, ... }
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint events_dates_valid check (ends_at >= starts_at),
+  constraint events_capacity_positive check (capacity is null or capacity > 0)
+);
+
+-- Drives the three homepage sections (open / upcoming / past)
+create index events_status_starts_at_idx on events (status, starts_at);
+
+create trigger events_set_updated_at
+  before update on events
+  for each row execute function set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- event_days
+-- Attendance hangs off a day, not an int — this is what makes multi-day work.
+-- ---------------------------------------------------------------------------
+
+create table event_days (
+  id         uuid primary key default gen_random_uuid(),
+  event_id   uuid not null references events (id) on delete cascade,
+  day_number integer not null,
+  label      text,                      -- 'Day 1 — Fundamentals'
+  date       timestamptz not null,
+
+  unique (event_id, day_number),
+  constraint event_days_number_positive check (day_number > 0)
+);
+
+create index event_days_event_id_idx on event_days (event_id);
+
+-- ---------------------------------------------------------------------------
+-- registrations
+-- ---------------------------------------------------------------------------
+
+create table registrations (
+  id       uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events (id) on delete cascade,
+
+  -- Friendly, shown to the student and searchable in admin: KJS-7F3A9C
+  code     text not null unique,
+  -- 32 random bytes. THIS is what the QR encodes — never `code`, or tickets
+  -- become forgeable and anyone can mark themselves present.
+  qr_token text not null unique,
+
+  full_name text not null,
+  email     text not null,
+  phone     text,
+  -- Answers to the event's form_key fields, keyed by FieldDef.key
+  answers   jsonb not null default '{}'::jsonb,
+
+  status            reg_status not null default 'APPROVED',
+  payment_proof_url text,                -- Cloudinary. Never the image itself.
+
+  created_at timestamptz not null default now(),
+
+  -- Per-event, NOT global. A global unique email would mean a student can
+  -- register for exactly one event ever.
+  unique (event_id, email)
+);
+
+create index registrations_event_status_idx on registrations (event_id, status);
+create index registrations_email_idx on registrations (email);
+
+-- ---------------------------------------------------------------------------
+-- attendance
+-- ---------------------------------------------------------------------------
+
+create table attendance (
+  id              uuid primary key default gen_random_uuid(),
+  registration_id uuid not null references registrations (id) on delete cascade,
+  event_day_id    uuid not null references event_days (id) on delete cascade,
+  scanned_at      timestamptz not null default now(),
+  scanned_by      text,                  -- admin_users.id of the volunteer
+
+  -- Duplicate-scan prevention at the DB level. The scan API catches the
+  -- violation from this constraint (code 23505) and returns DUPLICATE.
+  unique (registration_id, event_day_id)
+);
+
+create index attendance_event_day_idx on attendance (event_day_id);
+
+-- ---------------------------------------------------------------------------
+-- certificates
+-- ---------------------------------------------------------------------------
+
+create table certificates (
+  id              uuid primary key default gen_random_uuid(),
+  registration_id uuid not null unique references registrations (id) on delete cascade,
+  serial          text not null unique,  -- S4DS/2026/LLM/0042
+  pdf_url         text not null,         -- Cloudinary raw upload
+  issued_at       timestamptz not null default now(),
+  emailed_at      timestamptz
+);
+
+-- ---------------------------------------------------------------------------
+-- admin_users
+-- ---------------------------------------------------------------------------
+
+create table admin_users (
+  id            uuid primary key default gen_random_uuid(),
+  email         text not null unique,
+  password_hash text not null,
+  name          text not null,
+  role          admin_role not null default 'SCANNER',
+  created_at    timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- email_jobs
+-- Nothing is ever sent inline in a request. Registration writes a row here and
+-- returns; a Netlify scheduled function drains the queue a few at a time.
+-- ---------------------------------------------------------------------------
+
+create table email_jobs (
+  id       uuid primary key default gen_random_uuid(),
+  "to"     text not null,
+  -- confirmation | ticket | approved | rejected | reminder | certificate
+  template text not null,
+  payload  jsonb not null default '{}'::jsonb,
+
+  registration_id uuid references registrations (id) on delete set null,
+
+  status     job_status not null default 'QUEUED',
+  attempts   integer not null default 0,
+  -- Claim marker. Set when a worker takes the job so two overlapping cron runs
+  -- can never send the same email twice.
+  locked_at  timestamptz,
+  last_error text,
+  sent_at    timestamptz,
+
+  created_at timestamptz not null default now()
+);
+
+create index email_jobs_status_created_idx on email_jobs (status, created_at);
+
+-- ---------------------------------------------------------------------------
+-- Row Level Security
+--
+-- Every table is RLS-enabled with NO policies, which denies all access to the
+-- anon and authenticated keys. All reads and writes go through our own server
+-- code using the service_role key, which bypasses RLS.
+--
+-- This is deliberate: students have no accounts, so there is no user identity
+-- for a policy to key off. Our route handlers are the authorization boundary.
+--
+-- Consequence: the service_role key must NEVER reach the browser. It is not
+-- prefixed NEXT_PUBLIC_ and must stay out of client components.
+-- ---------------------------------------------------------------------------
+
+alter table events        enable row level security;
+alter table event_days    enable row level security;
+alter table registrations enable row level security;
+alter table attendance    enable row level security;
+alter table certificates  enable row level security;
+alter table admin_users   enable row level security;
+alter table email_jobs    enable row level security;
