@@ -29,6 +29,12 @@ type Props = {
 
 type Answers = Record<string, unknown>;
 
+/** Nearly everyone registering is in India; the field stays editable for the rest. */
+const DEFAULT_DIAL_CODE = "+91";
+
+/** Indian mobile numbers are 10 digits and never start below 6. */
+const INDIAN_MOBILE = /^[6-9]\d{9}$/;
+
 /** Inline field error. Orange on bone is 4.6:1, and the copy leads with what to do. */
 function FieldError({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
@@ -110,7 +116,12 @@ export function RegistrationForm({
   const router = useRouter();
 
   const [step, setStep] = useState<"details" | "payment">("details");
-  const [contact, setContact] = useState({ full_name: "", email: "", phone: "" });
+  const [contact, setContact] = useState({ full_name: "", email: "" });
+  // Country code and subscriber number are held apart so the field can't be
+  // filled with "9876543210" and silently mean nothing, or with a second
+  // country code pasted in front of the first.
+  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [answers, setAnswers] = useState<Answers>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [proof, setProof] = useState<File | null>(null);
@@ -122,7 +133,16 @@ export function RegistrationForm({
 
     if (contact.full_name.trim().length < 2) next.full_name = "Enter your full name";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email)) next.email = "Enter a valid email address";
-    if (!/^[+\d][\d\s-]{7,17}$/.test(contact.phone)) next.phone = "Enter a valid phone number";
+
+    if (!/^\+\d{1,4}$/.test(dialCode)) {
+      next.phone = "Enter a country code, like +91";
+    } else if (dialCode === DEFAULT_DIAL_CODE) {
+      if (!INDIAN_MOBILE.test(phoneNumber)) {
+        next.phone = "Enter a 10-digit mobile number, without the country code";
+      }
+    } else if (!/^\d{6,14}$/.test(phoneNumber)) {
+      next.phone = "Enter the number without the country code";
+    }
 
     for (const field of fields) {
       if (!field.required) continue;
@@ -167,7 +187,14 @@ export function RegistrationForm({
       const response = await fetch(`/api/events/${slug}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...contact, answers, payment_proof_url }),
+        // The two phone inputs are joined back into the single `phone` column
+        // the API and the email worker expect.
+        body: JSON.stringify({
+          ...contact,
+          phone: `${dialCode} ${phoneNumber}`,
+          answers,
+          payment_proof_url,
+        }),
       });
 
       const body = await response.json().catch(() => ({}));
@@ -217,7 +244,7 @@ export function RegistrationForm({
           </div>
         ) : (
           <p className="mt-6 rounded-[var(--s4ds-r-sm)] border-2 border-dashed border-[var(--s4ds-ink-invert)]/35 p-4 text-sm font-bold text-[var(--s4ds-ink-invert-dim)]">
-            Payment QR not uploaded yet — ask the organisers.
+            Payment QR not uploaded yet. Ask the organisers.
           </p>
         )}
 
@@ -321,17 +348,42 @@ export function RegistrationForm({
               WhatsApp number
               <Req />
             </BrandLabel>
-            <BrandInput
-              id="phone"
-              type="tel"
-              className="mt-2"
-              value={contact.phone}
-              onChange={(event) => setContact({ ...contact, phone: event.target.value })}
-              aria-invalid={Boolean(errors.phone) || undefined}
-              aria-describedby={errors.phone ? "phone-error" : undefined}
-              autoComplete="tel"
-              placeholder="+91 90000 00000"
-            />
+            <div className="mt-2 flex gap-2">
+              <BrandInput
+                id="dial_code"
+                type="tel"
+                inputMode="tel"
+                className="w-20 shrink-0 text-center font-bold tabular-nums"
+                value={dialCode}
+                onChange={(event) => setDialCode(event.target.value.trim())}
+                aria-label="Country code"
+                aria-invalid={Boolean(errors.phone) || undefined}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+                autoComplete="tel-country-code"
+                maxLength={5}
+              />
+              <BrandInput
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                className="tabular-nums"
+                value={phoneNumber}
+                // Strip anything that isn't a digit as it's typed, so a pasted
+                // "+91 98765 43210" or "098765-43210" lands as a clean number
+                // instead of a validation error the person has to decode.
+                onChange={(event) =>
+                  setPhoneNumber(
+                    event.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, dialCode === DEFAULT_DIAL_CODE ? 10 : 14),
+                  )
+                }
+                aria-invalid={Boolean(errors.phone) || undefined}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+                autoComplete="tel-national"
+                placeholder="9876543210"
+              />
+            </div>
             {errors.phone ? <FieldError id="phone-error">{errors.phone}</FieldError> : null}
           </div>
         </div>

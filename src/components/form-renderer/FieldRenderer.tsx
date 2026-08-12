@@ -49,12 +49,21 @@ export function FieldRenderer({
       )}
 
       {field.hint ? (
-        <p
-          id={`${id}-hint`}
-          className="mt-1 max-w-[62ch] text-xs leading-relaxed text-[var(--s4ds-ink-invert-dim)]"
-        >
-          {field.hint}
-        </p>
+        field.emphasiseHint ? (
+          <p
+            id={`${id}-hint`}
+            className="mt-2 max-w-[62ch] rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_30%,transparent)] px-3 py-2 text-xs font-bold leading-relaxed"
+          >
+            {field.hint}
+          </p>
+        ) : (
+          <p
+            id={`${id}-hint`}
+            className="mt-1 max-w-[62ch] text-xs leading-relaxed text-[var(--s4ds-ink-invert-dim)]"
+          >
+            {field.hint}
+          </p>
+        )
       ) : null}
 
       <div className={standalone ? "" : "mt-2"}>
@@ -84,6 +93,10 @@ export function FieldRenderer({
 /** Selectable option row: a full black edge and a yellow fill when chosen. */
 const OPTION_BASE =
   "flex cursor-pointer items-start gap-3 rounded-[var(--s4ds-r-sm)] border-2 px-3.5 py-3 text-sm transition-colors duration-150";
+
+/** Same key, sized to sit inline. 44px tall keeps it a comfortable tap target. */
+const OPTION_COMPACT =
+  "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--s4ds-r-sm)] border-2 px-3.5 py-2 text-sm transition-colors duration-150";
 
 function FieldInput({
   id,
@@ -123,20 +136,25 @@ function FieldInput({
         </BrandSelect>
       );
 
-    case "radio":
+    case "radio": {
+      // Short option sets (COMPS / AI-DS / IT / EXTC, FY / SY / TY / LY) read
+      // far better as a row of keys than a tall stack of near-empty rows.
+      // Prose-length options keep the stack, where the text needs the width.
+      const compact = (field.options ?? []).every((option) => option.length <= 14);
+
       return (
         <div
           role="radiogroup"
           aria-describedby={describedBy}
           aria-label={field.label}
-          className="space-y-2"
+          className={compact ? "flex flex-wrap gap-2" : "space-y-2"}
         >
           {field.options?.map((option) => {
             const checked = value === option;
             return (
               <label
                 key={option}
-                className={`${OPTION_BASE} ${
+                className={`${compact ? OPTION_COMPACT : OPTION_BASE} ${
                   checked
                     ? "border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_35%,transparent)] font-bold"
                     : "border-[var(--s4ds-ink-invert)]/25 hover:border-[var(--s4ds-edge)] hover:bg-[var(--s4ds-ink-invert)]/5"
@@ -148,7 +166,7 @@ function FieldInput({
                   value={option}
                   checked={checked}
                   onChange={() => onChange(option)}
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--s4ds-orange)]"
+                  className={`${compact ? "" : "mt-0.5"} size-4 shrink-0 accent-[var(--s4ds-orange)]`}
                 />
                 <span>{option}</span>
               </label>
@@ -156,6 +174,7 @@ function FieldInput({
           })}
         </div>
       );
+    }
 
     case "checkbox":
       return (
