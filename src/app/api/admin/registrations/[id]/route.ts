@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { requireRole, AuthError } from "@/lib/auth";
 import { registrationStatusSchema } from "@/lib/validation";
+import { enqueueEmail } from "@/lib/email/queue";
+import { emailPayload } from "@/lib/email/payload";
 
 /**
  * Approve / reject a registration.
@@ -29,11 +31,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
+  const { data: before } = await db
+    .from("registrations")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
   const { data, error } = await db
     .from("registrations")
     .update({ status: parsed.data.status })
     .eq("id", id)
-    .select("id, code, status, full_name, email")
+    .select("id, code, status, full_name, email, event_id")
     .maybeSingle();
 
   if (error) {
@@ -45,9 +53,21 @@ export async function PATCH(
     return NextResponse.json({ error: "Registration not found" }, { status: 404 });
   }
 
-  // TODO(Track D): enqueueEmail — "you're in, here's your ticket" on APPROVED,
-  // and the rejection note (parsed.data.reason) on REJECTED. Until the queue
-  // exists, students only find out by opening their ticket link.
+  // Only mail on an actual change of state. Without this, re-approving someone
+  // (or a double click) sends them a second "you're in" email.
+  const changed = before?.status !== data.status;
+
+  if (changed && (data.status === "APPROVED" || data.status === "REJECTED")) {
+    await enqueueEmail({
+      to: data.email,
+      template: data.status === "APPROVED" ? "approved" : "rejected",
+      registration_id: data.id,
+      payload: {
+        ...(await emailPayload(data.event_id, data.full_name, data.code)),
+        reason: parsed.data.reason,
+      },
+    });
+  }
 
   return NextResponse.json({ ok: true, registration: data });
 }
