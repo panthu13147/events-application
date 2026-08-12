@@ -40,7 +40,7 @@ export default async function EventPage({ params }: Params) {
 
   const fields = getEventFormFields(event);
   const closed = !event.registration_open;
-  const full = event.spots_left !== null && event.spots_left <= 0;
+  // Being full is no longer a closed state — it switches to `event.waitlisting`.
   const finished = new Date(event.ends_at) < new Date();
   const lowSpots =
     event.spots_left !== null && event.spots_left > 0 && event.spots_left <= 10;
@@ -162,7 +162,7 @@ export default async function EventPage({ params }: Params) {
               {event.waitlisting ? (
                 <p className="mt-5 rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-orange)] bg-[color-mix(in_srgb,var(--s4ds-orange)_12%,transparent)] px-4 py-3 text-sm leading-relaxed">
                   <strong className="font-black">All {event.capacity} seats are taken.</strong>{" "}
-                  You can still sign up — you&apos;ll go on the waitlist and we&apos;ll contact you
+                  You can still sign up. You&apos;ll go on the waitlist and we&apos;ll contact you
                   if a seat opens up. {event.requires_payment ? "Don't pay anything yet." : null}
                 </p>
               ) : null}

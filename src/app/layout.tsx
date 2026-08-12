@@ -24,8 +24,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "S4DS Events — KJSIT",
-    template: "%s — S4DS KJSIT",
+    default: "S4DS Events - KJSIT",
+    template: "%s - S4DS KJSIT",
   },
   description:
     "Workshops, hackathons and sessions run by the Society for Data Science at K J Somaiya Institute of Technology.",
