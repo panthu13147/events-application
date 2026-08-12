@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import { Globe } from "lucide-react";
 import { isReservedSlug } from "@/lib/reserved-slugs";
+import { getSpeakers, type Speaker } from "@/config/speakers";
 import {
   getEventBySlug,
   getEventFormFields,
@@ -39,6 +42,7 @@ export default async function EventPage({ params }: Params) {
   if (!event) notFound();
 
   const fields = getEventFormFields(event);
+  const speakers = getSpeakers(slug);
   const closed = !event.registration_open;
   // Being full is no longer a closed state — it switches to `event.waitlisting`.
   const finished = new Date(event.ends_at) < new Date();
@@ -50,7 +54,7 @@ export default async function EventPage({ params }: Params) {
   // saying "when you attend", which people read as "when I show up once".
   const refundTerms = event.requires_payment
     ? event.days.length > 1
-      ? `Refunded in full once you check in on Day ${event.days.length}. Attending only Day 1 does not qualify.`
+      ? `Refunded in full once you check in on Day ${event.days.length}.`
       : "Refunded in full once you check in at the door."
     : null;
 
@@ -133,6 +137,21 @@ export default async function EventPage({ params }: Params) {
           </div>
         ) : null}
 
+        {speakers.length > 0 ? (
+          <section className="mt-14">
+            <SectionHeading accent="peri" count={speakers.length}>
+              {speakers.length === 1 ? "Speaker" : "Speakers"}
+            </SectionHeading>
+            <ul className="mt-6 grid gap-5 sm:grid-cols-2">
+              {speakers.map((speaker) => (
+                <li key={speaker.linkedin}>
+                  <SpeakerCard speaker={speaker} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section id="register" className="mt-14 scroll-mt-20">
           {closed ? (
             <div className="rounded-[var(--s4ds-r)] border-[3px] border-dashed border-[var(--s4ds-ink)]/30 px-6 py-12 text-center">
@@ -172,7 +191,8 @@ export default async function EventPage({ params }: Params) {
                   <strong className="font-black">
                     {formatFee(event.fee_amount)} deposit, not a fee.
                   </strong>{" "}
-                  {refundTerms} It only exists so seats don&apos;t go to no-shows.
+                  {refundTerms} 
+                  <br/> It only exists so seats don&apos;t go to no-shows.
                 </p>
               ) : null}
 
@@ -194,6 +214,85 @@ export default async function EventPage({ params }: Params) {
         </section>
       </div>
     </main>
+  );
+}
+
+/** Lucide dropped brand marks, so the LinkedIn glyph is inlined. */
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="size-4" fill="currentColor">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" />
+    </svg>
+  );
+}
+
+/**
+ * Icon-only, so the accessible name has to carry the speaker's name too —
+ * "LinkedIn" on its own is four identical links to a screen reader.
+ */
+function SpeakerLink({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      className="grid size-9 place-items-center rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[var(--s4ds-bone)] text-[var(--s4ds-ink-invert)] shadow-[var(--s4ds-shadow-press)] transition-[transform,box-shadow,background-color] duration-150 ease-[var(--s4ds-ease)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-[var(--s4ds-yellow)] hover:shadow-[var(--s4ds-shadow)] active:translate-x-0 active:translate-y-0 active:shadow-none"
+    >
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Two destinations now, so the card can't be one link any more. The photo and
+ * name are plain content and the icons carry the navigation.
+ */
+function SpeakerCard({ speaker }: { speaker: Speaker }) {
+  return (
+    <Panel className="flex h-full items-center gap-4 p-4">
+      <Image
+        src={speaker.photo}
+        alt={`${speaker.name}, speaking at this event`}
+        width={160}
+        height={160}
+        className="size-16 shrink-0 rounded-[var(--s4ds-r-sm)] border-[3px] border-[var(--s4ds-edge)] object-cover sm:size-20"
+      />
+      <div className="min-w-0">
+        <p className="text-lg font-black leading-tight tracking-[-0.015em] text-balance">
+          {speaker.name}
+        </p>
+        {speaker.role ? (
+          <p className="mt-1 text-sm font-normal leading-snug text-[var(--s4ds-ink-invert-dim)] text-pretty">
+            {speaker.role}
+          </p>
+        ) : null}
+        <div className="mt-2.5 flex items-center gap-2">
+          <SpeakerLink
+            href={speaker.linkedin}
+            label={`${speaker.name} on LinkedIn`}
+          >
+            <LinkedInIcon />
+          </SpeakerLink>
+          {speaker.portfolio ? (
+            <SpeakerLink
+              href={speaker.portfolio}
+              label={`${speaker.name}'s portfolio`}
+            >
+              <Globe className="size-4" />
+            </SpeakerLink>
+          ) : null}
+        </div>
+      </div>
+    </Panel>
   );
 }
 
