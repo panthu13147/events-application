@@ -1,0 +1,16 @@
+[build]
+  command = "next build"
+
+[build.environment]
+  NODE_VERSION = "20.19.0"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Drains the email_jobs queue. Netlify has no Vercel-Cron equivalent, so a
+# scheduled function calls our route handler.
+#
+# Function timeout is short (~10s default). The worker therefore claims only a
+# handful of jobs per run — see src/app/api/cron/process-emails (Track D).
+[functions."process-emails"]
+  schedule = "* * * * *"
