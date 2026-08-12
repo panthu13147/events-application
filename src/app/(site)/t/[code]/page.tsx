@@ -101,7 +101,7 @@ export default async function TicketPage({
                as "you're in". */
             <div className="rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-peri)_28%,transparent)] p-4 text-center text-sm leading-snug">
               <strong className="font-black">The event was full when you signed up.</strong>{" "}
-              You&apos;re on the waitlist — we&apos;ll get in touch if a seat opens up. Keep this
+              You&apos;re on the waitlist. We&apos;ll get in touch if a seat opens up. Keep this
               link; your ticket appears here if you get one.
             </div>
           ) : (
@@ -110,7 +110,7 @@ export default async function TicketPage({
               {pending ? (
                 <p className="rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_35%,transparent)] px-4 py-3 text-center text-sm leading-snug">
                   <strong className="font-black">An organiser is checking your payment.</strong>{" "}
-                  Keep this link — the QR starts working once approved.
+                  Keep this link. The QR starts working once approved.
                 </p>
               ) : (
                 <p className="text-center text-sm font-bold text-[var(--s4ds-ink-invert-dim)]">
@@ -160,7 +160,7 @@ export default async function TicketPage({
       </div>
 
       <p className="mt-6 text-center text-sm text-[var(--s4ds-ink-dim)] text-pretty">
-        Bookmark this page — it&apos;s your ticket.{" "}
+        Bookmark this page. It&apos;s your ticket.{" "}
         <Link
           href={`/${event.slug}`}
           className="font-bold text-[var(--s4ds-yellow)] underline underline-offset-4"

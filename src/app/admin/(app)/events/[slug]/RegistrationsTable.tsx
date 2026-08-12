@@ -214,7 +214,7 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
                   {fields.map((key) => (
                     <div key={key} className="flex gap-1.5">
                       <dt className="opacity-70">{key.replace(/_/g, " ")}:</dt>
-                      <dd className="font-medium text-foreground">{row.answers[key] ?? "—"}</dd>
+                      <dd className="font-medium text-foreground">{row.answers[key] ?? "-"}</dd>
                     </div>
                   ))}
                 </dl>

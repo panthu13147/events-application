@@ -32,9 +32,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {/* Registrations aren't a top-level destination — they belong to an
                 event, so you reach them by opening one. */}
             {isAdmin ? (
-              <Link href="/admin" className="hover:text-foreground">
-                Events
-              </Link>
+              <>
+                <Link href="/admin" className="hover:text-foreground">
+                  Events
+                </Link>
+                <Link href="/admin/emails" className="hover:text-foreground">
+                  Email
+                </Link>
+              </>
             ) : null}
             <Link href="/admin/scan" className="hover:text-foreground">
               Scanner

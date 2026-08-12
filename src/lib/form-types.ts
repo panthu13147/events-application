@@ -19,6 +19,12 @@ export type FieldDef = {
   placeholder?: string;
   /** Help text under the input */
   hint?: string;
+  /**
+   * Renders the hint as a callout rather than quiet grey text. For the one or
+   * two hints per form that change what someone should answer — not a way to
+   * make every hint louder, which just resets the baseline.
+   */
+  emphasiseHint?: boolean;
   /** Required for select / radio */
   options?: string[];
 };

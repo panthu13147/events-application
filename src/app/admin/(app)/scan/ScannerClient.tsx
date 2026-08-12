@@ -94,7 +94,7 @@ export function ScannerClient({ days }: { days: Day[] }) {
         >
           {days.map((day) => (
             <option key={day.id} value={day.id}>
-              {day.event_title} — {day.label}
+              {day.event_title} - {day.label}
             </option>
           ))}
         </select>
@@ -128,7 +128,7 @@ export function ScannerClient({ days }: { days: Day[] }) {
 
       {cameraError ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
-          {cameraError}. Camera needs HTTPS — use the deploy preview URL on a phone, not
+          {cameraError}. Camera needs HTTPS. Use the deploy preview URL on a phone, not
           localhost. Use the manual check-in below in the meantime.
         </p>
       ) : null}

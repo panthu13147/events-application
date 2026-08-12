@@ -5,6 +5,8 @@ import { buildAnswersSchema } from "@/lib/form-types";
 import { registrationBaseSchema } from "@/lib/validation";
 import { generateCode, generateQrToken } from "@/lib/ids";
 import type { Json } from "@/lib/database.types";
+import { enqueueEmail } from "@/lib/email/queue";
+import { emailPayload } from "@/lib/email/payload";
 
 /**
  * Registration.
@@ -124,8 +126,14 @@ export async function POST(
 
   const registration = Array.isArray(data) ? data[0] : data;
 
-  // TODO(Track D): enqueueEmail({ to, template: "confirmation", ... }) once the
-  // queue lands. The ticket page works without it.
+  await enqueueEmail({
+    to: registration.email,
+    // The RPC decides the status, so the email always matches what actually
+    // happened — no "you're registered" to someone who landed on the waitlist.
+    template: registration.status === "WAITLISTED" ? "waitlisted" : "confirmation",
+    registration_id: registration.id,
+    payload: await emailPayload(event.id, registration.full_name, registration.code),
+  });
 
   return NextResponse.json({ code: registration.code, status: registration.status });
 }

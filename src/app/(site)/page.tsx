@@ -64,13 +64,13 @@ function EventRow({
                 {event.title}
               </h3>
               {dimmed ? null : (
+                /* Every fee in this app is a refundable deposit, not a ticket
+                   price, so the badge prices the event itself: free. The
+                   deposit amount and the terms for getting it back are on the
+                   event page, before anyone is asked to pay. If a genuinely
+                   non-refundable event is ever added, this needs a flag to tell
+                   the two apart. */
                 <span className="mt-0.5 shrink-0 rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[var(--s4ds-green)] px-2 py-1 text-xs font-black uppercase tracking-[0.04em] leading-none text-[var(--s4ds-bone)]">
-                  {/* Every fee in this app is a refundable deposit, not a
-                      ticket price, so the listing prices the event itself:
-                      free. The deposit amount and the conditions for getting
-                      it back are stated on the event page, before anyone
-                      pays. If a genuinely non-refundable event is ever added,
-                      this needs a flag to distinguish the two. */}
                   Free
                 </span>
               )}
@@ -154,7 +154,7 @@ export default async function Home() {
           </h1>
 
           <p className="mt-8 max-w-[52ch] text-lg leading-relaxed text-[var(--s4ds-ink-dim)] text-pretty">
-            Everything the Society for Data Science runs at KJSIT register,
+            Everything the Society for Data Science runs at KJSIT. Register,
             get your QR, walk in.
           </p>
 
