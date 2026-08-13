@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "certificate",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "certificate-templates", "-l", "4321"],
+      "port": 4321
     }
   ]
 }
