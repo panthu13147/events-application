@@ -95,6 +95,19 @@ This is deliberate — students have no accounts, so there's no user identity fo
 
 > **Our route handlers are the authorization boundary.** Nothing below them protects the data. Every admin route calls `requireRole()`. The service_role key never gets a `NEXT_PUBLIC_` prefix and never reaches a client component — [`src/lib/supabase.ts`](../src/lib/supabase.ts) imports `server-only` so the build fails if it does.
 
+### Admin accounts and the three roles
+
+`OWNER > ADMIN > SCANNER`, ranked in [`src/lib/session.ts`](../src/lib/session.ts). SCANNER is the volunteer account: the proxy only lets it reach `/admin/scan`, and it's created from `/admin/users` before an event — there's no invite email, you read them the password.
+
+Two rules, both in `session.ts` so the API and the UI can't disagree:
+
+- **`canManageRole(actor, target)` is strictly greater-than.** You manage and hand out roles *below* your own. ADMINs therefore can't demote each other, and OWNER accounts are only made by the seed script or by hand in the database — deliberate friction on the account that can delete registrations.
+- **Nobody edits their own account** in the UI, or the last OWNER can lock themselves out with one click.
+
+Accounts are **deactivated, never deleted**: `attendance.scanned_by` is a plain-text `admin_users.id` with no foreign key, so deleting the row would orphan every scan that volunteer recorded.
+
+**`requireRole()` re-reads the user row on every guarded request.** The JWT carries `role` and lives seven days, so on the cookie alone a deactivation or a demotion wouldn't bite until next week. That costs one primary-key lookup per admin request — including each scan — and it's why the button means what it says. The edge proxy can't do this (no database there), so it stays a redirect convenience and the route handler decides.
+
 ### Cloudinary for files
 
 - Netlify functions are stateless and can't write to disk.
@@ -114,6 +127,7 @@ The schema is SQL, in [`supabase/migrations/`](../supabase/migrations/):
 
 - `0001_init.sql` — tables, enums, indexes, constraints, RLS
 - `0002_functions.sql` — the two atomic operations (see below)
+- `0005_admin_users_active.sql` — `admin_users.is_active`, so accounts are deactivated rather than deleted
 
 Types live in [`src/lib/database.types.ts`](../src/lib/database.types.ts). **If you change the SQL, change the types in the same commit** — a mismatch type-checks fine and fails at runtime.
 
@@ -200,6 +214,8 @@ Agree on this before anyone writes code — it's what lets four people work in p
 | `POST` | `/api/admin/scan` | SCANNER |
 | `GET` | `/api/admin/events/[id]/stats` | SCANNER — live counts |
 | `POST` | `/api/admin/events/[id]/certificates` | ADMIN — generate + queue |
+| `GET/POST` | `/api/admin/users` | ADMIN — list / create admin + scanner accounts |
+| `PATCH` | `/api/admin/users/[id]` | ADMIN — role, deactivate, password reset |
 | `POST` | `/api/cron/process-emails` | `CRON_SECRET` header |
 
 ### `/api/admin/scan` — agree on this exactly
