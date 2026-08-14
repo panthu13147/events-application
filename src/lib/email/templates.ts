@@ -148,18 +148,23 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
         html: layout(`You're in, ${escapeHtml(first)}`, [
           `<p style="margin:0 0 4px;">Your spot at <strong>${escapeHtml(payload.event_title)}</strong> is confirmed.</p>`,
           details(payload),
+          // cid:whatsapp-icon is attached in worker.ts, matched to this exact
+          // green so the mark sits flush in the button with no visible edge.
+          `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 0;">
+            <tr><td style="background:#128C4A;border-radius:8px;padding:11px 22px;">
+              <a href="https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1" style="display:block;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">
+                <img src="cid:whatsapp-icon" alt="" width="18" height="18" style="vertical-align:middle;border:0;">
+                <span style="vertical-align:middle;">&nbsp;&nbsp;Join WhatsApp Group</span>
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:13px;color:#666666;">Join our WhatsApp group for further details.</p>`,
           // cid: points at the attached PNG, so it shows without the recipient
           // having to click "display images".
           `<p style="margin:18px 0 8px;">Show this at the door:</p>
            <img src="cid:ticket-qr" alt="Your ticket QR code" width="200" height="200" style="display:block;border:8px solid #ffffff;border-radius:8px;">`,
           button(payload.ticket_url, "Open my ticket"),
           `<p style="margin:0;font-size:13px;color:#666666;">Can't see the code? Open the ticket link, it works on any phone.</p>`,
-          `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
-            <tr><td style="background:#25D366;border-radius:8px;">
-              <a href="https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1" style="display:inline-block;padding:13px 24px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">WhatsApp</a>
-            </td></tr>
-          </table>
-          <p style="margin:12px 0 0;font-size:13px;color:#666666;">Join our WhatsApp group for further details.</p>`,
         ].join("")),
         text: [
           `You're in, ${first}.`,
@@ -168,8 +173,9 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
           "",
           textDetails(payload),
           "",
-          "Show the QR on your ticket page at the door.",
           "Join our WhatsApp group for further details: https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1",
+          "",
+          "Show the QR on your ticket page at the door.",
         ].join("\n"),
       };
     }
