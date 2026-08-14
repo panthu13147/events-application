@@ -154,6 +154,12 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
            <img src="cid:ticket-qr" alt="Your ticket QR code" width="200" height="200" style="display:block;border:8px solid #ffffff;border-radius:8px;">`,
           button(payload.ticket_url, "Open my ticket"),
           `<p style="margin:0;font-size:13px;color:#666666;">Can't see the code? Open the ticket link, it works on any phone.</p>`,
+          `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
+            <tr><td style="background:#25D366;border-radius:8px;">
+              <a href="https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1" style="display:inline-block;padding:13px 24px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">WhatsApp</a>
+            </td></tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:13px;color:#666666;">Join our WhatsApp group for further details.</p>`,
         ].join("")),
         text: [
           `You're in, ${first}.`,
@@ -163,6 +169,7 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
           textDetails(payload),
           "",
           "Show the QR on your ticket page at the door.",
+          "Join our WhatsApp group for further details: https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1",
         ].join("\n"),
       };
     }
