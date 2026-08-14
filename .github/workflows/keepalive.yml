@@ -1,0 +1,65 @@
+# Keeps the Supabase project from pausing.
+#
+# The free tier pauses after ~7 days with no activity and needs someone to
+# click restore in the dashboard. Between events that is exactly what happens:
+# the site goes down during a quiet week and nobody notices until a student
+# opens a link.
+#
+# The homepage is force-dynamic and queries Supabase on every request, so one
+# GET is enough activity to reset the clock. That means this needs no secrets —
+# only the public URL.
+#
+# Set the repo variable SITE_URL (Settings -> Secrets and variables -> Actions
+# -> Variables) if the production domain isn't the default below. Use the
+# Netlify *.netlify.app address until the kjsit.org CNAME is live.
+
+name: keepalive
+
+on:
+  schedule:
+    # 06:00 UTC on Monday and Thursday — twice a week, comfortably inside the
+    # ~7 day window even if one run is dropped. GitHub skips scheduled runs on
+    # repos with no activity for 60 days, which is the real failure mode here.
+    - cron: "0 6 * * 1,4"
+  workflow_dispatch:
+
+# Two overlapping runs would be pointless, and a queued one is already stale.
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping the homepage
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://s4ds-events.kjsit.org' }}
+        run: |
+          set -euo pipefail
+
+          # --retry covers a cold start or a blip; it should not paper over a
+          # project that is actually paused, hence the modest count.
+          status=$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --retry 3 \
+            --retry-delay 20 \
+            --retry-all-errors \
+            --max-time 45 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "$SITE_URL")
+
+          echo "GET $SITE_URL -> $status"
+
+          # A 5xx here usually means the database is unreachable — which is the
+          # thing this workflow exists to prevent. Fail loudly so the run shows
+          # up red rather than quietly "succeeding" against a dead site.
+          if [ "$status" -ne 200 ]; then
+            echo "::error::Expected 200 from $SITE_URL, got $status. If this is 5xx, check whether the Supabase project is paused."
+            exit 1
+          fi
