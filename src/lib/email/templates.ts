@@ -184,20 +184,24 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
       return {
         subject: `About your registration - ${payload.event_title}`,
         html: layout("About your registration", [
-          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)}, we couldn't confirm your registration for <strong>${escapeHtml(payload.event_title)}</strong>.</p>`,
-          payload.reason
-            ? `<p style="margin:16px 0;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:14px;">${escapeHtml(payload.reason)}</p>`
-            : `<p style="margin:16px 0;">This usually means we couldn't match your payment.</p>`,
-          `<p style="margin:0;">If you think that's a mistake, reply to this email and we'll sort it out.</p>`,
+          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)}, we're sorry — we couldn't confirm your registration for <strong>${escapeHtml(payload.event_title)}</strong>.</p>`,
+          `<p style="margin:16px 0;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:14px;">${escapeHtml(
+            payload.reason ?? "This usually means we ran out of seats.",
+          )}</p>`,
+          `<p style="margin:0 0 12px;">We know that's disappointing, and we'd rather have had you there.</p>`,
+          `<p style="margin:0;">If you think that's a mistake, reply to this email and we'll sort it out. Either way, we'll announce the next event soon and we'd love to see you at it.</p>`,
         ].join("")),
         text: [
           `Hi ${first},`,
           "",
-          `We couldn't confirm your registration for ${payload.event_title}.`,
+          `We're sorry — we couldn't confirm your registration for ${payload.event_title}.`,
           "",
-          payload.reason ?? "This usually means we couldn't match your payment.",
+          payload.reason ?? "This usually means we ran out of seats.",
           "",
-          "If you think that's a mistake, reply to this email.",
+          "We know that's disappointing, and we'd rather have had you there.",
+          "",
+          "If you think that's a mistake, reply to this email and we'll sort it out.",
+          "Either way, we'll announce the next event soon and we'd love to see you at it.",
         ].join("\n"),
       };
     }
