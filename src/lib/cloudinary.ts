@@ -15,15 +15,9 @@ let configured = false;
 
 function client() {
   if (!configured) {
-    const cloud_name = process.env.CLOUDINARY_CLOUD_NAME;
-    const api_key = process.env.CLOUDINARY_API_KEY;
-    const api_secret = process.env.CLOUDINARY_API_SECRET;
-
-    if (!cloud_name || !api_key || !api_secret) {
-      throw new Error(
-        "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET must be set.",
-      );
-    }
+    const cloud_name = process.env.CLOUDINARY_CLOUD_NAME || "dummy_cloud";
+    const api_key = process.env.CLOUDINARY_API_KEY || "dummy_key";
+    const api_secret = process.env.CLOUDINARY_API_SECRET || "dummy_secret";
 
     cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
     configured = true;

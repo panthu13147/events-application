@@ -14,3 +14,6 @@
 # handful of jobs per run — see src/app/api/cron/process-emails (Track D).
 [functions."process-emails"]
   schedule = "* * * * *"
+
+[functions."process-certificates"]
+  schedule = "* * * * *"
