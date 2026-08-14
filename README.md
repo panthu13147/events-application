@@ -3,8 +3,8 @@
 Event registration → emailed QR ticket → per-day attendance scanning → certificates.
 Live at `s4ds-events.kjsit.org`, events published at `/<event-slug>`.
 
+- [docs/PRODUCT.md](docs/PRODUCT.md) — what it does, who for, the rules. Start here.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — stack, data model, API contract. **The contract.**
-- [docs/TEAM-PLAN.md](docs/TEAM-PLAN.md) — who owns which files, timeline, conventions.
 
 ## Setup
 
@@ -24,6 +24,8 @@ In the Supabase dashboard → **SQL Editor**, run these in order:
 
 1. `supabase/migrations/0001_init.sql`
 2. `supabase/migrations/0002_functions.sql`
+3. `supabase/migrations/0004_waitlist.sql`
+4. `supabase/migrations/0005_admin_users_active.sql`
 
 ### 3. Environment
 

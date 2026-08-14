@@ -19,6 +19,23 @@ export type Row = {
   proof_url: string | null;
 };
 
+/**
+ * Rejection is one of two things in practice, and both need wording the person
+ * on the other end can act on. Free text would drift into one-word reasons
+ * ("payment") that read as curt in an email, so the choice is fixed here and
+ * the sentence travels to the template as-is.
+ */
+const REJECT_REASONS = [
+  {
+    label: "Out of capacity",
+    text: "We ran out of seats for this one — more people registered than we can fit.",
+  },
+  {
+    label: "Payment not matched",
+    text: "We couldn't match a payment to your registration.",
+  },
+] as const;
+
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   APPROVED: "default",
   PENDING: "secondary",
@@ -36,15 +53,18 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
   // Deleting is irreversible, so the bin icon arms a confirm step rather than
   // firing straight away.
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  // Rejecting asks which of the two reasons applies before it fires, so the
+  // email says something useful instead of just "we couldn't confirm it".
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  async function setStatus(id: string, status: "APPROVED" | "REJECTED") {
+  async function setStatus(id: string, status: "APPROVED" | "REJECTED", reason?: string) {
     setBusyId(id);
     setError(null);
 
     const response = await fetch(`/api/admin/registrations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason }),
     });
 
     if (!response.ok) {
@@ -53,6 +73,8 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
       setBusyId(null);
       return;
     }
+
+    setRejectingId(null);
 
     // refresh() re-runs the server component so counts and filters stay honest.
     startTransition(() => {
@@ -79,6 +101,7 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
     }
 
     setConfirmingId(null);
+    setRejectingId(null);
     startTransition(() => {
       router.refresh();
       setBusyId(null);
@@ -142,7 +165,31 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
                     </span>
                   )}
 
-                  {confirmingId === row.id ? (
+                  {rejectingId === row.id ? (
+                    <>
+                      <span className="text-sm text-muted-foreground">Reject because…</span>
+                      {REJECT_REASONS.map((reason) => (
+                        <Button
+                          key={reason.label}
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy}
+                          title={reason.text}
+                          onClick={() => setStatus(row.id, "REJECTED", reason.text)}
+                        >
+                          {busy ? "…" : reason.label}
+                        </Button>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setRejectingId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : confirmingId === row.id ? (
                     <>
                       <span className="text-sm text-muted-foreground">Delete permanently?</span>
                       <Button
@@ -169,7 +216,7 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
                           size="sm"
                           variant="outline"
                           disabled={busy}
-                          onClick={() => setStatus(row.id, "REJECTED")}
+                          onClick={() => setRejectingId(row.id)}
                         >
                           Revoke
                         </Button>

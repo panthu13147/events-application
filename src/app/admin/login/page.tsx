@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "Sign in" };
@@ -9,7 +9,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const session = await getSession();
+  // getActiveSession(), not getSession(). A deactivated account still holds a
+  // valid cookie for up to seven days; on getSession() this page would bounce
+  // it to /admin and the admin layout would bounce it straight back here.
+  const session = await getActiveSession();
   if (session) {
     redirect(session.role === "SCANNER" ? "/admin/scan" : "/admin");
   }

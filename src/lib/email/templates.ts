@@ -148,18 +148,23 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
         html: layout(`You're in, ${escapeHtml(first)}`, [
           `<p style="margin:0 0 4px;">Your spot at <strong>${escapeHtml(payload.event_title)}</strong> is confirmed.</p>`,
           details(payload),
+          // cid:whatsapp-icon is attached in worker.ts, matched to this exact
+          // green so the mark sits flush in the button with no visible edge.
+          `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 0;">
+            <tr><td style="background:#128C4A;border-radius:8px;padding:11px 22px;">
+              <a href="https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1" style="display:block;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">
+                <img src="cid:whatsapp-icon" alt="" width="18" height="18" style="vertical-align:middle;border:0;">
+                <span style="vertical-align:middle;">&nbsp;&nbsp;Join WhatsApp Group</span>
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:13px;color:#666666;">Join our WhatsApp group for further details.</p>`,
           // cid: points at the attached PNG, so it shows without the recipient
           // having to click "display images".
           `<p style="margin:18px 0 8px;">Show this at the door:</p>
            <img src="cid:ticket-qr" alt="Your ticket QR code" width="200" height="200" style="display:block;border:8px solid #ffffff;border-radius:8px;">`,
           button(payload.ticket_url, "Open my ticket"),
           `<p style="margin:0;font-size:13px;color:#666666;">Can't see the code? Open the ticket link, it works on any phone.</p>`,
-          `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
-            <tr><td style="background:#25D366;border-radius:8px;">
-              <a href="https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1" style="display:inline-block;padding:13px 24px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">WhatsApp</a>
-            </td></tr>
-          </table>
-          <p style="margin:12px 0 0;font-size:13px;color:#666666;">Join our WhatsApp group for further details.</p>`,
         ].join("")),
         text: [
           `You're in, ${first}.`,
@@ -168,8 +173,9 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
           "",
           textDetails(payload),
           "",
-          "Show the QR on your ticket page at the door.",
           "Join our WhatsApp group for further details: https://chat.whatsapp.com/GmtWbCfG65hGl8kPvNRxZZ?s=cl&p=a&ilr=1",
+          "",
+          "Show the QR on your ticket page at the door.",
         ].join("\n"),
       };
     }
@@ -178,20 +184,24 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
       return {
         subject: `About your registration - ${payload.event_title}`,
         html: layout("About your registration", [
-          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)}, we couldn't confirm your registration for <strong>${escapeHtml(payload.event_title)}</strong>.</p>`,
-          payload.reason
-            ? `<p style="margin:16px 0;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:14px;">${escapeHtml(payload.reason)}</p>`
-            : `<p style="margin:16px 0;">This usually means we couldn't match your payment.</p>`,
-          `<p style="margin:0;">If you think that's a mistake, reply to this email and we'll sort it out.</p>`,
+          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)}, we're sorry — we couldn't confirm your registration for <strong>${escapeHtml(payload.event_title)}</strong>.</p>`,
+          `<p style="margin:16px 0;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:14px;">${escapeHtml(
+            payload.reason ?? "This usually means we ran out of seats.",
+          )}</p>`,
+          `<p style="margin:0 0 12px;">We know that's disappointing, and we'd rather have had you there.</p>`,
+          `<p style="margin:0;">If you think that's a mistake, reply to this email and we'll sort it out. Either way, we'll announce the next event soon and we'd love to see you at it.</p>`,
         ].join("")),
         text: [
           `Hi ${first},`,
           "",
-          `We couldn't confirm your registration for ${payload.event_title}.`,
+          `We're sorry — we couldn't confirm your registration for ${payload.event_title}.`,
           "",
-          payload.reason ?? "This usually means we couldn't match your payment.",
+          payload.reason ?? "This usually means we ran out of seats.",
           "",
-          "If you think that's a mistake, reply to this email.",
+          "We know that's disappointing, and we'd rather have had you there.",
+          "",
+          "If you think that's a mistake, reply to this email and we'll sort it out.",
+          "Either way, we'll announce the next event soon and we'd love to see you at it.",
         ].join("\n"),
       };
     }

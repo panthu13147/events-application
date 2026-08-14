@@ -10,7 +10,10 @@ import { SignJWT, jwtVerify } from "jose";
 export const SESSION_COOKIE = "s4ds_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-export type AdminRoleName = "OWNER" | "ADMIN" | "SCANNER";
+/** Highest privilege first — the order the role picker renders in. */
+export const ADMIN_ROLES = ["OWNER", "ADMIN", "SCANNER"] as const;
+
+export type AdminRoleName = (typeof ADMIN_ROLES)[number];
 
 export type SessionPayload = {
   sub: string;
@@ -62,6 +65,29 @@ const RANK: Record<AdminRoleName, number> = { SCANNER: 1, ADMIN: 2, OWNER: 3 };
 
 export function hasRole(actual: AdminRoleName, required: AdminRoleName): boolean {
   return RANK[actual] >= RANK[required];
+}
+
+/**
+ * The rule for managing other admin accounts: you may only touch — and only
+ * hand out — roles strictly below your own.
+ *
+ * Strictly, not "or equal", on purpose. If ADMINs could edit each other they
+ * could demote or deactivate one another, and two OWNERs could lock each other
+ * out of the only account that can undo it. The consequence is that OWNER
+ * accounts are created by the seed script or directly in the database, never
+ * through the UI — which is the right amount of friction for the account that
+ * can delete registrations.
+ *
+ * Used by both the API and the UI so the buttons on screen match what the
+ * route handler will actually allow.
+ */
+export function canManageRole(actor: AdminRoleName, target: AdminRoleName): boolean {
+  return RANK[actor] > RANK[target];
+}
+
+/** Roles `actor` is allowed to assign — what the role picker should offer. */
+export function assignableRoles(actor: AdminRoleName): AdminRoleName[] {
+  return ADMIN_ROLES.filter((role) => canManageRole(actor, role));
 }
 
 export const sessionCookieOptions = {
