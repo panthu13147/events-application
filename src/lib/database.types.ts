@@ -93,6 +93,7 @@ type AdminUserRow = {
   password_hash: string;
   name: string;
   role: AdminRole;
+  is_active: boolean;
   created_at: string;
 };
 
@@ -162,7 +163,7 @@ export type Database = {
       };
       admin_users: {
         Row: AdminUserRow;
-        Insert: Insert<AdminUserRow, "id" | "created_at" | "role">;
+        Insert: Insert<AdminUserRow, "id" | "created_at" | "role" | "is_active">;
         Update: Partial<AdminUserRow>;
         Relationships: [];
       };

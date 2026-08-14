@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FORM_KEYS } from "@/config/forms";
 import { isReservedSlug } from "@/lib/reserved-slugs";
+import { ADMIN_ROLES } from "@/lib/session";
 
 /**
  * One Zod schema per API body in the contract (docs/ARCHITECTURE.md).
@@ -35,6 +36,39 @@ export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+// --- admin accounts ---------------------------------------------------------
+
+/**
+ * The role a body may carry. Whether the *caller* is allowed to hand it out is
+ * a separate question, answered by canManageRole() in the route handler — Zod
+ * can't see who is asking.
+ */
+export const adminRoleSchema = z.enum(ADMIN_ROLES);
+
+const adminPasswordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(200);
+
+export const adminUserCreateSchema = z.object({
+  name: z.string().trim().min(2, "Enter a name").max(120),
+  email: z.email("Enter a valid email address").toLowerCase(),
+  password: adminPasswordSchema,
+  role: adminRoleSchema,
+});
+
+/** Every field optional — the UI sends only the one row action it fired. */
+export const adminUserUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    role: adminRoleSchema.optional(),
+    is_active: z.boolean().optional(),
+    password: adminPasswordSchema.optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Nothing to update",
+  });
 
 // --- events -----------------------------------------------------------------
 
@@ -146,3 +180,5 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type EventInput = z.infer<typeof eventInputSchema>;
 export type RegistrationBaseInput = z.infer<typeof registrationBaseSchema>;
 export type ScanInput = z.infer<typeof scanSchema>;
+export type AdminUserCreateInput = z.infer<typeof adminUserCreateSchema>;
+export type AdminUserUpdateInput = z.infer<typeof adminUserUpdateSchema>;

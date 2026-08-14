@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const { data: user, error } = await db
     .from("admin_users")
-    .select("id, email, name, role, password_hash")
+    .select("id, email, name, role, is_active, password_hash")
     .eq("email", email.toLowerCase())
     .maybeSingle();
 
@@ -30,6 +30,16 @@ export async function POST(request: Request) {
 
   if (!user || !valid) {
     return NextResponse.json({ error: "Incorrect email or password" }, { status: 401 });
+  }
+
+  // Only after the password checks out. Saying this to someone who already
+  // proved they own the account leaks nothing, and "incorrect password" would
+  // send a deactivated volunteer to reset a password that was never the issue.
+  if (!user.is_active) {
+    return NextResponse.json(
+      { error: "This account has been deactivated. Ask an admin to re-enable it." },
+      { status: 403 },
+    );
   }
 
   const token = await signSession({

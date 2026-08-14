@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { hasRole } from "@/lib/session";
 import { LogoutButton } from "./LogoutButton";
 
@@ -13,9 +13,13 @@ import { LogoutButton } from "./LogoutButton";
  *
  * The proxy already redirects unauthenticated users; this covers the cookie
  * expiring between requests, and gives us the session for the nav anyway.
+ *
+ * getActiveSession() rather than getSession() so an account deactivated from
+ * /admin/users loses the shell on its next navigation. The proxy can't do this
+ * — it runs as an edge function and has no database.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session) redirect("/admin/login");
 
   const isAdmin = hasRole(session.role, "ADMIN");
@@ -38,6 +42,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </Link>
                 <Link href="/admin/emails" className="hover:text-foreground">
                   Email
+                </Link>
+                <Link href="/admin/users" className="hover:text-foreground">
+                  Team
                 </Link>
               </>
             ) : null}
