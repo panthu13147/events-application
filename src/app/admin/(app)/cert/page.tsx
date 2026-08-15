@@ -2,7 +2,6 @@ import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { CertificatesManager } from "./CertificatesManager";
 import { EventSelector } from "./EventSelector";
-import { CsvUpload } from "./CsvUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -22,22 +21,26 @@ export default async function CertificatesPage({ searchParams }: Params) {
 
   const selectedEvent = events?.find((e) => e.slug === selectedSlug) ?? null;
 
-  let registrations = [];
+  let registrations: any[] = [];
+  let fetchedEventDays: { id: string; label: string | null }[] = [];
+
   if (selectedEvent) {
     // Get total days for this event
     const { data: eventDays } = await db
       .from("event_days")
-      .select("id")
-      .eq("event_id", selectedEvent.id);
+      .select("id, label")
+      .eq("event_id", selectedEvent.id)
+      .order("day_number", { ascending: true });
       
-    const totalDays = eventDays?.length || 0;
+    fetchedEventDays = eventDays || [];
+    const totalDays = fetchedEventDays.length;
 
     const { data: regs, error: regsError } = await db
       .from("registrations")
       .select(`
         id, code, full_name, email, phone,
         certificate_jobs(status),
-        attendance(id)
+        attendance(id, event_day_id)
       `)
       .eq("event_id", selectedEvent.id)
       .eq("status", "APPROVED")
@@ -45,17 +48,7 @@ export default async function CertificatesPage({ searchParams }: Params) {
 
     if (regsError) throw regsError;
     
-    // Filter out users who haven't attended all days (if there are days)
-    // For CSV uploads, if totalDays === 0, everyone is eligible.
-    registrations = (regs ?? []).filter(r => {
-      // If the event has defined days, attendees MUST have scanned in for all of them
-      if (totalDays > 0) {
-        // @ts-ignore
-        const attendanceCount = r.attendance?.length || 0;
-        return attendanceCount >= totalDays;
-      }
-      return true; // No days defined = everyone approved is eligible
-    }).map(r => {
+    registrations = (regs ?? []).map(r => {
       // @ts-ignore
       const certJobs = r.certificate_jobs;
       let cert_status = "PENDING";
@@ -67,9 +60,11 @@ export default async function CertificatesPage({ searchParams }: Params) {
         cert_status = (certJobs as any).status;
       }
 
+      // We want to pass the attendance data down so the UI can render individual day columns
       return {
         ...r,
-        cert_status
+        cert_status,
+        attendance: r.attendance || []
       };
     });
   }
@@ -91,13 +86,11 @@ export default async function CertificatesPage({ searchParams }: Params) {
         </div>
 
         {selectedEvent && (
-          <>
-            <CsvUpload eventId={selectedEvent.id} />
-            <CertificatesManager
-              event={selectedEvent}
-              registrations={registrations}
-            />
-          </>
+          <CertificatesManager
+            event={selectedEvent}
+            eventDays={fetchedEventDays}
+            registrations={registrations}
+          />
         )}
       </div>
     </div>

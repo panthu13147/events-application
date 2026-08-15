@@ -10,18 +10,36 @@ type Registration = {
   email: string;
   phone: string | null;
   cert_status?: string;
+  attendance: { id: string; event_day_id: string }[];
+};
+
+type EventDay = {
+  id: string;
+  label: string | null;
 };
 
 export function CertificatesManager({
   event,
-  registrations,
+  eventDays,
+  registrations: allRegistrations,
 }: {
   event: { id: string; slug: string; title: string };
+  eventDays: EventDay[];
   registrations: Registration[];
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<"all" | "selected" | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const totalDays = eventDays.length;
+
+  // Filter registrations that attended ALL days to be eligible for certificate
+  const registrations = allRegistrations.filter(r => {
+    if (totalDays > 0) {
+      return r.attendance.length >= totalDays;
+    }
+    return true; // No days defined = everyone approved is eligible
+  });
 
   const allSelected = selectedIds.size === registrations.length && registrations.length > 0;
 
@@ -172,13 +190,22 @@ export function CertificatesManager({
                   className="size-4 rounded border-gray-300 bg-background text-primary"
                 />
               </th>
+              <th className="p-3 font-medium text-muted-foreground">Code</th>
               <th className="p-3 font-medium text-muted-foreground">Attendee</th>
               <th className="p-3 font-medium text-muted-foreground">Contact</th>
+              {eventDays.map((day, i) => (
+                <th key={day.id} className="p-3 font-medium text-muted-foreground whitespace-nowrap">
+                  {day.label || `Day ${i + 1}`}
+                </th>
+              ))}
+              <th className="p-3 font-medium text-muted-foreground whitespace-nowrap">Days Attended</th>
               <th className="p-3 font-medium text-muted-foreground">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {registrations.map((row) => (
+            {registrations.map((row) => {
+              const attendedDays = new Set(row.attendance.map(a => a.event_day_id));
+              return (
               <tr key={row.id} className="hover:bg-muted/30">
                 <td className="p-3">
                   <input
@@ -188,6 +215,7 @@ export function CertificatesManager({
                     className="size-4 rounded border-gray-300 bg-background text-primary"
                   />
                 </td>
+                <td className="p-3 font-mono text-xs">{row.code}</td>
                 <td className="p-3">
                   <div className="font-medium text-foreground">{row.full_name}</div>
                 </td>
@@ -195,11 +223,23 @@ export function CertificatesManager({
                   <div>{row.email}</div>
                   {row.phone && <div className="text-xs">{row.phone}</div>}
                 </td>
+                {eventDays.map((day) => (
+                  <td key={day.id} className="p-3 text-center">
+                    {attendedDays.has(day.id) ? (
+                      <span className="text-green-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-red-500 font-bold">✗</span>
+                    )}
+                  </td>
+                ))}
+                <td className="p-3 text-center font-medium">
+                  {attendedDays.size} / {totalDays}
+                </td>
                 <td className="p-3 text-muted-foreground">
                   <span className="font-mono text-xs">{row.cert_status || "PENDING"}</span>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

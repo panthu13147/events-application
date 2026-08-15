@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     "Workshops, hackathons and sessions run by the Society for Data Science at K J Somaiya Institute of Technology.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"

@@ -8,11 +8,12 @@ export async function GET(request: Request) {
   try {
     const pdfBytes = await generateCertificatePdf(name);
     
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
+      status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="certificate.pdf"`,
-      },
+        "Content-Disposition": "inline; filename=test-cert.pdf"
+      }
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });

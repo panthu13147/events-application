@@ -111,6 +111,15 @@ type EmailJobRow = {
   created_at: string;
 };
 
+type CertificateJobRow = {
+  id: string;
+  registration_id: string | null;
+  event_id: string | null;
+  status: JobStatus;
+  error_msg: string | null;
+  created_at: string;
+};
+
 /** Columns that accept null — omitting them on insert is the same as null. */
 type NullableKeys<Row> = {
   [K in keyof Row]-?: null extends Row[K] ? K : never;
@@ -173,6 +182,12 @@ export type Database = {
         Update: Partial<EmailJobRow>;
         Relationships: [];
       };
+      certificate_jobs: {
+        Row: CertificateJobRow;
+        Insert: Insert<CertificateJobRow, "id" | "created_at" | "status">;
+        Update: Partial<CertificateJobRow>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -217,3 +232,4 @@ export type Attendance = AttendanceRow;
 export type Certificate = CertificateRow;
 export type AdminUser = AdminUserRow;
 export type EmailJob = EmailJobRow;
+export type CertificateJob = CertificateJobRow;
