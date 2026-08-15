@@ -33,21 +33,22 @@ export function CertificatesManager({
 
   const totalDays = eventDays.length;
 
-  // Filter registrations that attended ALL days to be eligible for certificate
-  const registrations = allRegistrations.filter(r => {
-    if (totalDays > 0) {
-      return r.attendance.length >= totalDays;
-    }
-    return true; // No days defined = everyone approved is eligible
-  });
+  // We show everyone, but we identify who is eligible
+  const isEligible = (r: Registration) => {
+    if (totalDays > 0) return r.attendance.length >= totalDays;
+    return true;
+  };
 
-  const allSelected = selectedIds.size === registrations.length && registrations.length > 0;
+  const eligibleRegistrations = allRegistrations.filter(isEligible);
+  const registrations = allRegistrations; // show all in UI
+
+  const allSelected = selectedIds.size === eligibleRegistrations.length && eligibleRegistrations.length > 0;
 
   const toggleAll = () => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(registrations.map((r) => r.id)));
+      setSelectedIds(new Set(eligibleRegistrations.map((r) => r.id)));
     }
   };
 
@@ -62,7 +63,7 @@ export function CertificatesManager({
     setLoading(mode);
     setMessage(null);
 
-    const idsToSend = mode === "all" ? registrations.map((r) => r.id) : Array.from(selectedIds);
+    const idsToSend = mode === "all" ? eligibleRegistrations.map((r) => r.id) : Array.from(selectedIds);
 
     if (idsToSend.length === 0) {
       setMessage({ type: "error", text: "No attendees selected." });
@@ -139,7 +140,9 @@ export function CertificatesManager({
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-lg font-medium">{registrations.length} Eligible Attendees</h2>
+        <h2 className="text-lg font-medium">
+          {registrations.length} Attendees ({eligibleRegistrations.length} Eligible)
+        </h2>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -212,7 +215,8 @@ export function CertificatesManager({
                     type="checkbox"
                     checked={selectedIds.has(row.id)}
                     onChange={() => toggleOne(row.id)}
-                    className="size-4 rounded border-gray-300 bg-background text-primary"
+                    disabled={!isEligible(row)}
+                    className="size-4 rounded border-gray-300 bg-background text-primary disabled:opacity-50"
                   />
                 </td>
                 <td className="p-3 font-mono text-xs">{row.code}</td>

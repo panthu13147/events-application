@@ -23,29 +23,36 @@ async function main() {
     return;
   }
 
+  // RESET registrations for this event
+  console.log("Resetting registrations for this event...");
+  await supabase.from("registrations").delete().eq("event_id", event.id);
+
   // Get event days for LLM Masterclass
   const { data: eventDays } = await supabase
     .from("event_days")
     .select("id, day_number")
-    .eq("event_id", event.id);
+    .eq("event_id", event.id)
+    .order("day_number");
 
   if (!eventDays || eventDays.length === 0) {
     console.error("No event days found for LLM Masterclass.");
     return;
   }
 
-  // Generate 3 dummy users
+  // Generate requested dummy users
   const dummyUsers = [
-    { name: "Alice Hacker", email: "alice@example.com" },
-    { name: "Bob Builder", email: "bob@example.com" },
-    { name: "Charlie Chaplin", email: "charlie@example.com" }
+    { name: "Panth Shah", email: "panth.shah@somaiya.edu" },
+    { name: "GG Player", email: "ggplayer485@gmail.com" },
+    { name: "Panth 444", email: "panth44444@gmail.com" },
+    { name: "Panth 222", email: "panth22222@gmail.com" },
+    { name: "Panth Main", email: "panthu13147@gmail.com" }
   ];
 
   for (let i = 0; i < dummyUsers.length; i++) {
     const user = dummyUsers[i];
     console.log(`\nProcessing ${user.name}...`);
     
-    // Register the user using the RPC function (handles capacity, unique codes, etc.)
+    // Register the user using the RPC function
     const code = `DUMMY-${i + 1}`;
     const qrToken = crypto.randomBytes(32).toString("hex");
 
@@ -79,25 +86,26 @@ async function main() {
       .update({ status: "APPROVED" })
       .eq("id", fetchReg.id);
 
-    // Make Alice attend ALL days
-    // Make Bob attend ONLY DAY 1
-    // Make Charlie attend NO days
-    if (i === 0) {
-      console.log(`Marking Alice as attended for all ${eventDays.length} days...`);
+    // Make some attend both, some 1, some 0
+    if (i < 2) {
+      // First 2 attend ALL days (2 days)
+      console.log(`Marking ${user.name} as attended for all ${eventDays.length} days...`);
       for (const day of eventDays) {
         await supabase.from("attendance").insert({
           registration_id: fetchReg.id,
           event_day_id: day.id
-        }).select().maybeSingle();
+        });
       }
-    } else if (i === 1 && eventDays.length > 0) {
-      console.log(`Marking Bob as attended for Day 1 only...`);
+    } else if (i < 4 && eventDays.length > 0) {
+      // Next 2 attend ONLY DAY 1
+      console.log(`Marking ${user.name} as attended for Day 1 only...`);
       await supabase.from("attendance").insert({
         registration_id: fetchReg.id,
         event_day_id: eventDays[0].id
-      }).select().maybeSingle();
+      });
     } else {
-      console.log(`Charlie did not attend any days.`);
+      // Last 1 (panthu13147) attends NO days
+      console.log(`${user.name} did not attend any days.`);
     }
   }
 
