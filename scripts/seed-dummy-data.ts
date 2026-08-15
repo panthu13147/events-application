@@ -43,6 +43,7 @@ async function main() {
   const dummyUsers = [
     { name: "Panth Shah", email: "panth.shah@somaiya.edu" },
     { name: "GG Player", email: "ggplayer485@gmail.com" },
+    { name: "Ayush Salve", email: "ayush.salve@somaiya.edu" },
     { name: "Panth 444", email: "panth44444@gmail.com" },
     { name: "Panth 222", email: "panth22222@gmail.com" },
     { name: "Panth Main", email: "panthu13147@gmail.com" }
@@ -87,8 +88,8 @@ async function main() {
       .eq("id", fetchReg.id);
 
     // Make some attend both, some 1, some 0
-    if (i < 2) {
-      // First 2 attend ALL days (2 days)
+    if (i < 3) {
+      // First 3 attend ALL days (2 days)
       console.log(`Marking ${user.name} as attended for all ${eventDays.length} days...`);
       for (const day of eventDays) {
         await supabase.from("attendance").insert({
@@ -96,7 +97,7 @@ async function main() {
           event_day_id: day.id
         });
       }
-    } else if (i < 4 && eventDays.length > 0) {
+    } else if (i < 5 && eventDays.length > 0) {
       // Next 2 attend ONLY DAY 1
       console.log(`Marking ${user.name} as attended for Day 1 only...`);
       await supabase.from("attendance").insert({
