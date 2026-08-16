@@ -21,8 +21,11 @@ const MAX_ATTEMPTS = 4;
 
 export type DrainResult = { claimed: number; sent: number; failed: number };
 
-export async function processEmailQueue(batch = 5): Promise<DrainResult> {
-  const { data: jobs, error } = await db.rpc("claim_email_jobs", { p_limit: batch });
+export async function processEmailQueue(batch = 5, includeCertificates = false): Promise<DrainResult> {
+  const { data: jobs, error } = await db.rpc("claim_email_jobs", { 
+    p_limit: batch, 
+    p_include_certificates: includeCertificates 
+  });
 
   if (error) throw error;
   if (!jobs?.length) return { claimed: 0, sent: 0, failed: 0 };

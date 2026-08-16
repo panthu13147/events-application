@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   try {
     // Bigger batch than the cron's 5 — this runs on a real request, not inside
     // a Netlify function with a 10s ceiling.
-    return NextResponse.json(await processEmailQueue(15));
+    return NextResponse.json(await processEmailQueue(15, true));
   } catch (error) {
     console.error("manual drain failed:", error);
     return NextResponse.json(
