@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Send } from "lucide-react";
+import { RefreshCw, Send, Trash2, SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DrainButton({ queued }: { queued: number }) {
@@ -70,6 +70,60 @@ export function RetryButton({ id }: { id: string }) {
     >
       <RefreshCw className="size-3.5" />
       {busy ? "…" : "Retry"}
+    </Button>
+  );
+}
+
+export function SendOneButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="gap-1.5"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await fetch("/api/admin/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "send_one", id }),
+        });
+        router.refresh();
+        setBusy(false);
+      }}
+    >
+      <SendHorizontal className="size-3.5" />
+      {busy ? "…" : "Send"}
+    </Button>
+  );
+}
+
+export function CancelButton({ id }: { id: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="gap-1.5 text-muted-foreground hover:text-destructive"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await fetch("/api/admin/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "delete", id }),
+        });
+        router.refresh();
+        setBusy(false);
+      }}
+    >
+      <Trash2 className="size-3.5" />
+      {busy ? "…" : "Cancel"}
     </Button>
   );
 }

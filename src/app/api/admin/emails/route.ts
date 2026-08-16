@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/supabase";
 import { requireRole, AuthError } from "@/lib/auth";
-import { processEmailQueue } from "@/lib/email/worker";
+import { processEmailQueue, sendEmailJob } from "@/lib/email/worker";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("drain") }),
   z.object({ action: z.literal("retry"), id: z.string().min(1) }),
+  z.object({ action: z.literal("send_one"), id: z.string().min(1) }),
+  z.object({ action: z.literal("delete"), id: z.string().min(1) }),
 ]);
 
 /**
@@ -41,6 +43,23 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: "Could not requeue" }, { status: 500 });
+    }
+  }
+
+  if (parsed.data.action === "delete") {
+    const { error } = await db.from("email_jobs").delete().eq("id", parsed.data.id);
+    if (error) return NextResponse.json({ error: "Could not delete" }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (parsed.data.action === "send_one") {
+    try {
+      // First update status to SENDING so it doesn't get picked up by a race condition drain
+      await db.from("email_jobs").update({ status: "SENDING", locked_at: new Date().toISOString() }).eq("id", parsed.data.id);
+      await sendEmailJob(parsed.data.id);
+      return NextResponse.json({ success: true });
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
     }
   }
 

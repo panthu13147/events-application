@@ -105,3 +105,58 @@ async function qrPng(payload: TemplatePayload): Promise<Buffer> {
     errorCorrectionLevel: "M",
   });
 }
+
+/**
+ * Sends a single specific email job by its ID.
+ */
+export async function sendEmailJob(id: string): Promise<boolean> {
+  const { data: job, error: fetchError } = await db
+    .from("email_jobs")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !job) throw new Error("Job not found");
+  if (job.status === "SENT") return true;
+
+  try {
+    const payload = job.payload as unknown as TemplatePayload;
+    const { subject, html, text } = renderEmail(job.template as TemplateName, payload);
+
+    let attachments;
+    if (job.template === "approved" && payload.code) {
+      attachments = [
+        { filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" },
+        { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
+      ];
+    } else if (job.template === "certificate") {
+      attachments = [
+        {
+          filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
+          content: await generateCertificatePdf(payload.name),
+          contentType: "application/pdf",
+        },
+      ];
+    }
+
+    await sendEmail({ to: job.to, subject, html, text, attachments });
+
+    await db
+      .from("email_jobs")
+      .update({ status: "SENT", sent_at: new Date().toISOString(), last_error: null })
+      .eq("id", job.id);
+
+    return true;
+  } catch (sendError) {
+    const message = sendError instanceof Error ? sendError.message : String(sendError);
+    await db
+      .from("email_jobs")
+      .update({
+        status: "FAILED",
+        last_error: message.slice(0, 500),
+        locked_at: null,
+      })
+      .eq("id", job.id);
+    return false;
+  }
+}

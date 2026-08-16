@@ -1,6 +1,6 @@
 import { db } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
-import { DrainButton, RetryButton } from "./QueueActions";
+import { DrainButton, RetryButton, SendOneButton, CancelButton } from "./QueueActions";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +105,18 @@ export default async function EmailQueuePage() {
                 ) : null}
               </div>
 
-              {job.status === "FAILED" ? <RetryButton id={job.id} /> : null}
+              {job.status === "QUEUED" ? (
+                <div className="flex items-center gap-2">
+                  <SendOneButton id={job.id} />
+                  <CancelButton id={job.id} />
+                </div>
+              ) : null}
+              {job.status === "FAILED" ? (
+                <div className="flex items-center gap-2">
+                  <RetryButton id={job.id} />
+                  <CancelButton id={job.id} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
