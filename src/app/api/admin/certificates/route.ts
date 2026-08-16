@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   let query = db
     .from("registrations")
-    .select("id")
+    .select("id, email, full_name, events!inner(title)")
     .eq("event_id", eventId)
     .eq("status", "APPROVED");
 
@@ -33,15 +33,26 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!regs?.length) return NextResponse.json({ queued: 0 });
 
-  const jobs = regs.map((r) => ({
-    registration_id: r.id,
-    event_id: eventId,
-    status: "QUEUED" as const,
-  }));
+  const jobs = regs.map((r) => {
+    const event = (r as any).events;
+    return {
+      registration_id: r.id,
+      to: r.email,
+      template: "certificate",
+      status: "QUEUED" as const,
+      payload: {
+        name: r.full_name,
+        event_title: event?.title || "S4DS Event",
+      },
+    };
+  });
 
+  // Cannot do a clean upsert based on registration_id for email_jobs because it is not a UNIQUE constraint
+  // (a user could have multiple emails like waitlisted, approved, certificate).
+  // So we just insert them. We might want to check if they already exist, but for now we just queue them.
   const { error: insertError } = await db
-    .from("certificate_jobs")
-    .upsert(jobs, { onConflict: "registration_id" });
+    .from("email_jobs")
+    .insert(jobs);
   
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });

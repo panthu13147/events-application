@@ -99,35 +99,7 @@ export function CertificatesManager({
     }
   };
 
-  const processQueue = async () => {
-    setMessage({ type: "success", text: "Processing queue... This may take a moment." });
 
-    try {
-      const response = await fetch("/api/admin/certificates/process", {
-        method: "POST",
-      });
-
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || "Failed to process queue");
-      }
-
-      if (body.processed === 0) {
-        setMessage({ type: "success", text: "Queue is already empty." });
-      } else {
-        setMessage({
-          type: "success",
-          text: `Processed ${body.processed} jobs: ${body.success} sent, ${body.failed} failed.`,
-        });
-      }
-      
-      // Refresh the page to get the updated statuses
-      window.location.reload();
-    } catch (e: any) {
-      setMessage({ type: "error", text: e.message });
-      setLoading(null);
-    }
-  };
 
   if (registrations.length === 0) {
     return (
@@ -157,14 +129,6 @@ export function CertificatesManager({
             disabled={loading !== null}
           >
             {loading === "all" ? "Queuing..." : "Send to All"}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={processQueue}
-            disabled={loading !== null}
-            className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200"
-          >
-            Process Queue (Force Send)
           </Button>
         </div>
       </div>

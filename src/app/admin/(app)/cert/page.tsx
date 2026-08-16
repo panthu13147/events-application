@@ -39,7 +39,7 @@ export default async function CertificatesPage({ searchParams }: Params) {
       .from("registrations")
       .select(`
         id, code, full_name, email, phone,
-        certificate_jobs(status),
+        email_jobs(status, template),
         attendance(id, event_day_id)
       `)
       .eq("event_id", selectedEvent.id)
@@ -49,15 +49,15 @@ export default async function CertificatesPage({ searchParams }: Params) {
     if (regsError) throw regsError;
     
     registrations = (regs ?? []).map(r => {
-      // @ts-ignore
-      const certJobs = r.certificate_jobs;
+      const certJobs = Array.isArray(r.email_jobs) 
+        ? r.email_jobs.filter((j: any) => j.template === "certificate")
+        : (r.email_jobs && (r.email_jobs as any).template === "certificate" ? [r.email_jobs] : []);
+        
       let cert_status = "PENDING";
       
-      if (Array.isArray(certJobs) && certJobs.length > 0) {
+      if (certJobs && certJobs.length > 0) {
         // Order by created_at DESC ideally, but just grab the first one
         cert_status = certJobs[0].status;
-      } else if (certJobs && !Array.isArray(certJobs)) {
-        cert_status = (certJobs as any).status;
       }
 
       // We want to pass the attendance data down so the UI can render individual day columns

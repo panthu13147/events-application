@@ -4,6 +4,7 @@ import { db } from "@/lib/supabase";
 import { sendEmail } from "@/lib/email/send";
 import { renderEmail, type TemplateName, type TemplatePayload } from "@/lib/email/templates";
 import { WHATSAPP_ICON_PNG } from "@/lib/email/assets";
+import { generateCertificatePdf } from "@/lib/certificates/generate";
 
 /**
  * Drains the email queue once.
@@ -34,15 +35,21 @@ export async function processEmailQueue(batch = 5): Promise<DrainResult> {
       const payload = job.payload as unknown as TemplatePayload;
       const { subject, html, text } = renderEmail(job.template as TemplateName, payload);
 
-      // The approval email embeds the QR so it works without opening a browser,
-      // and the WhatsApp mark on the group button next to it.
-      const attachments =
-        job.template === "approved" && payload.code
-          ? [
-              { filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" },
-              { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
-            ]
-          : undefined;
+      let attachments;
+      if (job.template === "approved" && payload.code) {
+        attachments = [
+          { filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" },
+          { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
+        ];
+      } else if (job.template === "certificate") {
+        attachments = [
+          {
+            filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
+            content: await generateCertificatePdf(payload.name),
+            contentType: "application/pdf",
+          },
+        ];
+      }
 
       await sendEmail({ to: job.to, subject, html, text, attachments });
 

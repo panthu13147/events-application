@@ -14,7 +14,8 @@ export type TemplateName =
   | "waitlisted"
   | "approved"
   | "rejected"
-  | "ticket";
+  | "ticket"
+  | "certificate";
 
 export type TemplatePayload = {
   name: string;
@@ -214,6 +215,24 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
           button(payload.ticket_url, "Open my ticket"),
         ].join("")),
         text: [`Here's your ticket.`, "", textDetails(payload)].join("\n"),
+      };
+    }
+
+    case "certificate": {
+      return {
+        subject: `Your Certificate - ${payload.event_title}`,
+        html: layout("Certificate of Participation", [
+          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)},</p>`,
+          `<p style="margin:0 0 12px;">Thank you for attending <strong>${escapeHtml(payload.event_title)}</strong>. We are thrilled to have had you with us!</p>`,
+          `<p style="margin:0;">Please find your certificate attached to this email.</p>`,
+        ].join("")),
+        text: [
+          `Hi ${first},`,
+          "",
+          `Thank you for attending ${payload.event_title}. We are thrilled to have had you with us!`,
+          "",
+          "Please find your certificate attached to this email.",
+        ].join("\n"),
       };
     }
   }
