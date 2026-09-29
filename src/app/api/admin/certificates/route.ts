@@ -51,41 +51,33 @@ export async function POST(req: NextRequest) {
     const answers = (r.answers as Record<string, any>) || {};
     const teamName = answers.team_name || answers.Team || answers.team || "";
 
-    // 1. Team Leader
-    if (r.full_name?.trim() && r.email?.trim()) {
-      jobs.push({
-        registration_id: r.id,
-        to: r.email.trim(),
-        template: "certificate",
-        status: "QUEUED" as const,
-        payload: {
-          name: r.full_name.trim(),
-          event_title: event?.title || "S4DS Event",
-          event_slug: event?.slug || "",
-          answers: { ...answers, team_name: teamName },
-        },
-      });
+    // Collect all team members (leader + member2/3/4)
+    const members: { name: string; email: string }[] = [];
+    if (r.full_name?.trim()) {
+      members.push({ name: r.full_name.trim(), email: r.email.trim() });
     }
-
-    // 2. Teammates (Member 2, Member 3, Member 4)
     for (const num of [2, 3, 4]) {
       const mName = answers[`member${num}_name`]?.trim();
       const mEmail = answers[`member${num}_email`]?.trim();
       if (mName && mEmail) {
-        jobs.push({
-          registration_id: r.id,
-          to: mEmail,
-          template: "certificate",
-          status: "QUEUED" as const,
-          payload: {
-            name: mName,
-            event_title: event?.title || "S4DS Event",
-            event_slug: event?.slug || "",
-            answers: { ...answers, team_name: teamName },
-          },
-        });
+        members.push({ name: mName, email: mEmail });
       }
     }
+
+    // One email to the team leader with ALL team members' certificates attached
+    jobs.push({
+      registration_id: r.id,
+      to: r.email.trim(),
+      template: "certificate",
+      status: "QUEUED" as const,
+      payload: {
+        name: r.full_name.trim(),
+        event_title: event?.title || "S4DS Event",
+        event_slug: event?.slug || "",
+        answers: { ...answers, team_name: teamName },
+        team_members: members,
+      },
+    });
   }
 
   // Cannot do a clean upsert based on registration_id for email_jobs because it is not a UNIQUE constraint

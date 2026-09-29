@@ -104,23 +104,31 @@ async function attachmentsFor(
   }
 
   if (template === "certificate") {
-    let contentBytes;
     const slug = (payload as any).event_slug || "";
-    if (slug.includes("knowbuild")) {
-      const answers = (payload as any).answers || {};
-      const teamName = answers.team_name || answers.Team || answers.team || "";
-      contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
-    } else {
-      contentBytes = await generateCertificatePdf(payload.name, { eventTitle: payload.event_title });
-    }
+    const answers = (payload as any).answers || {};
+    const teamName = answers.team_name || answers.Team || answers.team || "";
+    const teamMembers = (payload as any).team_members as { name: string }[] | undefined;
 
-    return [
-      {
-        filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-        content: Buffer.from(contentBytes),
+    // Generate a certificate for each team member
+    const names = (teamMembers && teamMembers.length > 0)
+      ? teamMembers.map(m => m.name)
+      : [payload.name];
+
+    const attachments: Attachment[] = [];
+    for (const name of names) {
+      let bytes: Uint8Array;
+      if (slug.includes("knowbuild")) {
+        bytes = await generateKnowbuildCertificatePdf(name, teamName);
+      } else {
+        bytes = await generateCertificatePdf(name, { eventTitle: payload.event_title });
+      }
+      attachments.push({
+        filename: `${name.replace(/\s+/g, "_")}_Certificate.pdf`,
+        content: Buffer.from(bytes),
         contentType: "application/pdf",
-      },
-    ];
+      });
+    }
+    return attachments;
   }
 
   return undefined;
