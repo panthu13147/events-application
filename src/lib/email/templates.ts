@@ -329,26 +329,41 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
 
     case "certificate": {
       const isKnowbuild = ((payload as any).event_slug || "").includes("knowbuild") || payload.event_title.toLowerCase().includes("knowbuild");
+      const answers = (payload as any).answers || {};
+      const teamName = answers.team_name || answers.Team || answers.team || "";
+      const teamMembers = (payload as any).team_members as { name: string }[] | undefined;
+
+      let greeting = `Dear ${first}`;
+      if (teamName) {
+        const memberNames = (teamMembers && teamMembers.length > 0)
+          ? teamMembers.map(m => m.name).join(", ")
+          : payload.name;
+        greeting = `Dear ${teamName} (${memberNames})`;
+      }
+
+      const certText = (teamMembers && teamMembers.length > 1)
+        ? "Please find the Certificates of Participation for your team attached to this email."
+        : "Please find your Certificate of Participation attached to this email.";
 
       if (isKnowbuild) {
         return {
-          subject: `Your Certificate of Participation - ${payload.event_title}`,
+          subject: teamName ? `Certificates of Participation - ${payload.event_title}` : `Your Certificate of Participation - ${payload.event_title}`,
           html: layout("Certificate of Participation", [
-            `<p style="margin:0 0 12px;">Dear ${escapeHtml(first)},</p>`,
+            `<p style="margin:0 0 12px;">${escapeHtml(greeting)},</p>`,
             `<p style="margin:0 0 12px;">Thank you for participating in <strong>${escapeHtml(payload.event_title)}</strong>, organized by the Society for Data Science (S4DS), KJSIT.</p>`,
             `<p style="margin:0 0 12px;">We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.</p>`,
-            `<p style="margin:0 0 12px;">Please find your Certificate of Participation attached to this email.</p>`,
+            `<p style="margin:0 0 12px;">${certText}</p>`,
             `<p style="margin:0 0 12px;">Thank you once again for being a part of ${escapeHtml(payload.event_title)}. We look forward to seeing you at our future events!</p>`,
             `<p style="margin:0;">Best regards,<br>Team S4DS<br>KJSIT</p>`
           ].join("")),
           text: [
-            `Dear ${first},`,
+            `${greeting},`,
             "",
             `Thank you for participating in ${payload.event_title}, organized by the Society for Data Science (S4DS), KJSIT.`,
             "",
             "We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.",
             "",
-            "Please find your Certificate of Participation attached to this email.",
+            certText,
             "",
             `Thank you once again for being a part of ${payload.event_title}. We look forward to seeing you at our future events!`,
             "",
