@@ -51,7 +51,7 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
 
-      // Under the attempt cap it goes back to QUEUED and the next run retries —
+      // Under the attempt cap it goes back to QUEUED and the next run retries â€”
       // which is how a daily Gmail rate limit resolves itself overnight.
       const giveUp = job.attempts >= MAX_ATTEMPTS;
 
@@ -77,7 +77,7 @@ type Attachment = { filename: string; content: Buffer; cid?: string; contentType
 /**
  * What to attach, kept in one place so the two send paths below can't drift.
  * Must agree with templates.ts about when each cid actually appears in the
- * HTML — an attachment nothing references is harmless, but a cid referenced
+ * HTML â€” an attachment nothing references is harmless, but a cid referenced
  * with nothing attached renders as a broken image.
  */
 async function attachmentsFor(
@@ -89,7 +89,7 @@ async function attachmentsFor(
       { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
     ];
     // has_ticket === false means this event issues no QR at all (see
-    // event-features.ticket) — the template already skips the <img
+    // event-features.ticket) â€” the template already skips the <img
     // src="cid:ticket-qr">, so attaching one anyway would just be dead weight.
     if (payload.has_ticket !== false) {
       attachments.push({ filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" });
@@ -98,7 +98,7 @@ async function attachmentsFor(
   }
 
   // "confirmation" only renders a WhatsApp button when the event has a
-  // community group configured — see communityButton() in templates.ts.
+  // community group configured â€” see communityButton() in templates.ts.
   if (template === "confirmation" && payload.community) {
     return [{ filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" }];
   }
@@ -127,7 +127,7 @@ async function attachmentsFor(
 }
 
 /**
- * The QR must encode qr_token, not the code — but the queue payload only
+ * The QR must encode qr_token, not the code â€” but the queue payload only
  * carries display data, so look the token up at send time. That also means a
  * ticket revoked before the email goes out simply won't carry a working code.
  */
