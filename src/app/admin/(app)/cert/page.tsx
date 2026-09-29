@@ -47,7 +47,7 @@ export default async function CertificatesPage({ searchParams }: Params) {
     const { data: regs, error: regsError } = await db
       .from("registrations")
       .select(`
-        id, code, full_name, email, phone,
+        id, code, full_name, email, phone, answers,
         email_jobs(status, template),
         attendance(id, event_day_id)
       `)

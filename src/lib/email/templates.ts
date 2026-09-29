@@ -327,17 +327,25 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
       };
     }
 
-        case "certificate": {
+    case "certificate": {
       const isKnowbuild = ((payload as any).event_slug || "").includes("knowbuild") || payload.event_title.toLowerCase().includes("knowbuild");
-      
+      const teamMembers = (payload as any).team_members as { name: string; email: string }[] | undefined;
+      const isMultiCert = teamMembers && teamMembers.length > 1;
+
       if (isKnowbuild) {
+        const certAttachText = isMultiCert
+          ? "Please find the Certificates of Participation for all members of your team attached to this email."
+          : "Please find your Certificate of Participation attached to this email.";
+
         return {
-          subject: `Your Certificate of Participation - ${payload.event_title}`,
+          subject: isMultiCert
+            ? `Certificates of Participation - ${payload.event_title}`
+            : `Your Certificate of Participation - ${payload.event_title}`,
           html: layout("Certificate of Participation", [
             `<p style="margin:0 0 12px;">Dear ${escapeHtml(first)},</p>`,
             `<p style="margin:0 0 12px;">Thank you for participating in <strong>${escapeHtml(payload.event_title)}</strong>, organized by the Society for Data Science (S4DS), KJSIT.</p>`,
             `<p style="margin:0 0 12px;">We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.</p>`,
-            `<p style="margin:0 0 12px;">Please find your Certificate of Participation attached to this email.</p>`,
+            `<p style="margin:0 0 12px;">${certAttachText}</p>`,
             `<p style="margin:0 0 12px;">Thank you once again for being a part of ${escapeHtml(payload.event_title)}. We look forward to seeing you at our future events!</p>`,
             `<p style="margin:0;">Best regards,<br>Team S4DS<br>KJSIT</p>`
           ].join("")),
@@ -348,7 +356,7 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
             "",
             "We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.",
             "",
-            "Please find your Certificate of Participation attached to this email.",
+            certAttachText,
             "",
             `Thank you once again for being a part of ${payload.event_title}. We look forward to seeing you at our future events!`,
             "",
@@ -359,19 +367,23 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
         };
       }
 
+      const defaultAttachText = isMultiCert
+        ? "Please find your team's certificates attached to this email."
+        : "Please find your certificate attached to this email.";
+
       return {
         subject: `Your Certificate - ${payload.event_title}`,
         html: layout("Certificate of Participation", [
           `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)},</p>`,
           `<p style="margin:0 0 12px;">Thank you for participating in <strong>${escapeHtml(payload.event_title)}</strong>. We hope you had a great experience!</p>`,
-          `<p style="margin:0;">Please find your certificate attached to this email.</p>`,
+          `<p style="margin:0;">${defaultAttachText}</p>`,
         ].join("")),
         text: [
           `Hi ${first},`,
           "",
           `Thank you for participating in ${payload.event_title}. We hope you had a great experience!`,
           "",
-          "Please find your certificate attached to this email.",
+          defaultAttachText,
         ].join("\n"),
       };
     }

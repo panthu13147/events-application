@@ -11,6 +11,7 @@ type Registration = {
   email: string;
   phone: string | null;
   cert_status?: string;
+  answers?: Record<string, any>;
   attendance: { id: string; event_day_id: string }[];
 };
 
@@ -73,6 +74,7 @@ export function CertificatesManager({
   eventDays: EventDay[];
   registrations: Registration[];
 }) {
+  const [deliveryMode, setDeliveryMode] = useState<"individual" | "leader_only">("individual");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<"all" | "selected" | null>(null);
   const [confirming, setConfirming] = useState<"all" | "selected" | null>(null);
@@ -135,6 +137,7 @@ export function CertificatesManager({
         body: JSON.stringify({
           eventId: event.id,
           registrationIds: idsToSend,
+          deliveryMode,
         }),
       });
 
@@ -169,12 +172,39 @@ export function CertificatesManager({
   return (
     <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-lg font-medium">
-          {registrations.length} attendees
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {eligibleRegistrations.length} came to every day
-          </span>
-        </h2>
+        <div>
+          <h2 className="text-lg font-medium">
+            {registrations.length} attendees
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              {eligibleRegistrations.length} came to every day
+            </span>
+          </h2>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Delivery:</span>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="deliveryMode"
+                value="individual"
+                checked={deliveryMode === "individual"}
+                onChange={() => setDeliveryMode("individual")}
+                className="size-3 text-primary"
+              />
+              <span>Individual (each member gets their own email)</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name="deliveryMode"
+                value="leader_only"
+                checked={deliveryMode === "leader_only"}
+                onChange={() => setDeliveryMode("leader_only")}
+                className="size-3 text-primary"
+              />
+              <span>All certs to team leader</span>
+            </label>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           {totalDays > 0 ? (
             <Button
@@ -263,6 +293,11 @@ export function CertificatesManager({
           <tbody className="divide-y">
             {registrations.map((row) => {
               const attendedDays = new Set(row.attendance.map(a => a.event_day_id));
+              const teamName = row.answers?.team_name || row.answers?.Team || row.answers?.team;
+              const extraMembers = [2, 3, 4]
+                .map((n) => row.answers?.[`member${n}_name`]?.trim())
+                .filter(Boolean);
+
               return (
               <tr key={row.id} className="hover:bg-muted/30">
                 <td className="p-3">
@@ -277,6 +312,16 @@ export function CertificatesManager({
                 <td className="p-3 font-mono text-xs">{row.code}</td>
                 <td className="p-3">
                   <div className="font-medium text-foreground">{row.full_name}</div>
+                  {teamName ? (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      <span className="font-semibold text-primary">Team: {teamName}</span>
+                      {extraMembers.length > 0 && (
+                        <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                          +{extraMembers.length} {extraMembers.length === 1 ? "member" : "members"}
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="p-3 text-muted-foreground">
                   <div>{row.email}</div>
@@ -337,13 +382,21 @@ function CertificatePreview({
   registration: Registration;
   onClose: () => void;
 }) {
-  const url = `/api/admin/certificates/preview?registrationId=${registration.id}`;
+  const members = [
+    registration.full_name,
+    registration.answers?.member2_name?.trim(),
+    registration.answers?.member3_name?.trim(),
+    registration.answers?.member4_name?.trim(),
+  ].filter(Boolean) as string[];
+
+  const [activeName, setActiveName] = useState(members[0] || registration.full_name);
+  const url = `/api/admin/certificates/preview?registrationId=${registration.id}&name=${encodeURIComponent(activeName)}`;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Certificate preview for ${registration.full_name}`}
+      aria-label={`Certificate preview for ${activeName}`}
       className="fixed inset-0 z-50 flex flex-col gap-3 bg-black/70 p-6"
       onClick={onClose}
     >
@@ -351,7 +404,27 @@ function CertificatePreview({
         className="flex items-center justify-between gap-4 text-sm text-white"
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="truncate font-medium">{registration.full_name}</p>
+        <div className="flex items-center gap-3 min-w-0">
+          <p className="truncate font-medium">{activeName}</p>
+          {members.length > 1 && (
+            <div className="flex items-center gap-1.5 rounded-md bg-white/10 p-1">
+              {members.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setActiveName(m)}
+                  className={`rounded px-2 py-0.5 text-xs transition-colors ${
+                    activeName === m
+                      ? "bg-white font-medium text-black"
+                      : "text-white/80 hover:bg-white/20"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <a
             href={url}

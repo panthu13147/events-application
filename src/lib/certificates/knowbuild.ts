@@ -47,21 +47,29 @@ export async function generateKnowbuildCertificatePdf(participantName: string, t
 
   const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
 
-  const textWidth = font.widthOfTextAtSize(participantName, NAME_SLOT.fontSize);
+  let nameSize = NAME_SLOT.fontSize;
+  while (font.widthOfTextAtSize(participantName, nameSize) > 460 && nameSize > 16) {
+    nameSize -= 0.5;
+  }
+  const textWidth = font.widthOfTextAtSize(participantName, nameSize);
   page.drawText(participantName, {
     x: NAME_SLOT.xCenter - textWidth / 2,
     y: PAGE.height - NAME_SLOT.yFromTop,
-    size: NAME_SLOT.fontSize,
+    size: nameSize,
     font,
     color: rgb(0.05, 0.05, 0.05),
   });
 
   if (teamName) {
-    const teamWidth = font.widthOfTextAtSize(teamName, TEAM_SLOT.fontSize);
+    let teamSize = TEAM_SLOT.fontSize;
+    while (font.widthOfTextAtSize(teamName, teamSize) > 440 && teamSize > 14) {
+      teamSize -= 0.5;
+    }
+    const teamWidth = font.widthOfTextAtSize(teamName, teamSize);
     page.drawText(teamName, {
       x: TEAM_SLOT.xCenter - teamWidth / 2,
       y: PAGE.height - TEAM_SLOT.yFromTop,
-      size: TEAM_SLOT.fontSize,
+      size: teamSize,
       font,
       color: rgb(0.05, 0.05, 0.05),
     });

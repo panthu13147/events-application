@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole, AuthError } from "@/lib/auth";
 import { db } from "@/lib/supabase";
 import { generateCertificatePdf } from "@/lib/certificates/generate";
+import { generateKnowbuildCertificatePdf } from "@/lib/certificates/knowbuild";
 
 /**
  * Renders one certificate and returns it inline, so the admin can look at the
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   const registrationId = request.nextUrl.searchParams.get("registrationId");
+  const memberNameParam = request.nextUrl.searchParams.get("name");
 
   if (!registrationId) {
     return NextResponse.json({ error: "registrationId is required" }, { status: 400 });
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const { data: registration, error } = await db
     .from("registrations")
-    .select("full_name, events!inner(title)")
+    .select("full_name, answers, events!inner(title, slug)")
     .eq("id", registrationId)
     .maybeSingle();
 
@@ -40,13 +42,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Registration not found" }, { status: 404 });
   }
 
-  // The event title is the one thing on the certificate that varies per event,
-  // so the preview has to carry it or it isn't previewing the real thing.
-  const event = registration.events as unknown as { title?: string } | null;
+  const event = registration.events as unknown as { title?: string; slug?: string } | null;
+  const answers = (registration.answers as Record<string, any>) || {};
+  const teamName = answers.team_name || answers.Team || answers.team || "";
+  const nameToUse = memberNameParam?.trim() || registration.full_name;
 
-  const pdf = await generateCertificatePdf(registration.full_name, {
-    eventTitle: event?.title,
-  });
+  let pdf: Uint8Array;
+  if (event?.slug?.includes("knowbuild")) {
+    pdf = await generateKnowbuildCertificatePdf(nameToUse, teamName);
+  } else {
+    pdf = await generateCertificatePdf(nameToUse, {
+      eventTitle: event?.title,
+    });
+  }
 
   return new NextResponse(Buffer.from(pdf), {
     headers: {

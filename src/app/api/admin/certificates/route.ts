@@ -8,6 +8,7 @@ import { eventSendsEmail } from "@/lib/email/queue";
 const bodySchema = z.object({
   eventId: z.string(),
   registrationIds: z.array(z.string().uuid()).optional(),
+  deliveryMode: z.enum(["individual", "leader_only"]).optional().default("individual"),
 });
 
 export async function POST(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { eventId, registrationIds } = parsed.data;
+  const { eventId, registrationIds, deliveryMode } = parsed.data;
 
   // This route writes to email_jobs directly rather than through
   // enqueueEmail, so it has to run the no-email check itself — see
@@ -44,21 +45,60 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!regs?.length) return NextResponse.json({ queued: 0 });
 
-  const jobs = regs.map((r) => {
+  const jobs: any[] = [];
+
+  for (const r of regs) {
     const event = (r as any).events;
-    return {
-      registration_id: r.id,
-      to: r.email,
-      template: "certificate",
-      status: "QUEUED" as const,
-      payload: {
-        name: r.full_name,
-        event_title: event?.title || "S4DS Event",
-        event_slug: event?.slug || "",
-        answers: r.answers || {},
-      },
-    };
-  });
+    const answers = (r.answers as Record<string, any>) || {};
+    const teamName = answers.team_name || answers.Team || answers.team || "";
+
+    // Gather all team members for this registration
+    const members: { name: string; email: string }[] = [];
+    if (r.full_name?.trim() && r.email?.trim()) {
+      members.push({ name: r.full_name.trim(), email: r.email.trim() });
+    }
+
+    for (const num of [2, 3, 4]) {
+      const mName = answers[`member${num}_name`]?.trim();
+      const mEmail = answers[`member${num}_email`]?.trim();
+      if (mName && mEmail) {
+        members.push({ name: mName, email: mEmail });
+      }
+    }
+
+    if (deliveryMode === "leader_only" && members.length > 1) {
+      // Send a single email to the leader with all certificates attached
+      jobs.push({
+        registration_id: r.id,
+        to: r.email,
+        template: "certificate",
+        status: "QUEUED" as const,
+        payload: {
+          name: r.full_name,
+          event_title: event?.title || "S4DS Event",
+          event_slug: event?.slug || "",
+          answers: { ...answers, team_name: teamName },
+          team_members: members,
+        },
+      });
+    } else {
+      // Send individual emails to each member with their own certificate
+      for (const m of members) {
+        jobs.push({
+          registration_id: r.id,
+          to: m.email,
+          template: "certificate",
+          status: "QUEUED" as const,
+          payload: {
+            name: m.name,
+            event_title: event?.title || "S4DS Event",
+            event_slug: event?.slug || "",
+            answers: { ...answers, team_name: teamName },
+          },
+        });
+      }
+    }
+  }
 
   // Cannot do a clean upsert based on registration_id for email_jobs because it is not a UNIQUE constraint
   // (a user could have multiple emails like waitlisted, approved, certificate).
