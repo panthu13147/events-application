@@ -328,7 +328,7 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
     }
 
         case "certificate": {
-      const isKnowbuild = (payload.event_slug || "").includes("knowbuild") || payload.event_title.toLowerCase().includes("knowbuild");
+      const isKnowbuild = ((payload as any).event_slug || "").includes("knowbuild") || payload.event_title.toLowerCase().includes("knowbuild");
       
       if (isKnowbuild) {
         return {
@@ -376,8 +376,9 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
       };
     }
   }
+}
 
-  function escapeHtml(value: string): string {
+function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
