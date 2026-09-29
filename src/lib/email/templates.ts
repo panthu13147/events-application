@@ -327,32 +327,63 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
       };
     }
 
-    case "certificate": {
+        case "certificate": {
+      const isKnowbuild = (payload as any).event_slug?.includes("knowbuild") || payload.event_title.toLowerCase().includes("knowbuild");
+      
+      if (isKnowbuild) {
+        return {
+          subject: \Your Certificate of Participation - \\,
+          html: layout("Certificate of Participation", [
+            \<p style="margin:0 0 12px;">Dear \,</p>\,
+            \<p style="margin:0 0 12px;">Thank you for participating in <strong>\</strong>, organized by the Society for Data Science (S4DS), KJSIT.</p>\,
+            \<p style="margin:0 0 12px;">We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.</p>\,
+            \<p style="margin:0 0 12px;">Please find your Certificate of Participation attached to this email.</p>\,
+            \<p style="margin:0 0 12px;">Thank you once again for being a part of \. We look forward to seeing you at our future events!</p>\,
+            \<p style="margin:0;">Best regards,<br>Team S4DS<br>KJSIT</p>\
+          ].join("")),
+          text: [
+            \Dear \,\,
+            "",
+            \Thank you for participating in \, organized by the Society for Data Science (S4DS), KJSIT.\,
+            "",
+            "We truly appreciate your enthusiasm, effort, and contribution to making the hackathon a success. We hope you enjoyed the experience, learned something new, and had a great time building and innovating with us.",
+            "",
+            "Please find your Certificate of Participation attached to this email.",
+            "",
+            \Thank you once again for being a part of \. We look forward to seeing you at our future events!\,
+            "",
+            "Best regards,",
+            "Team S4DS",
+            "KJSIT"
+          ].join("\n"),
+        };
+      }
+
       return {
-        subject: `Your Certificate - ${payload.event_title}`,
+        subject: \Your Certificate - \\,
         html: layout("Certificate of Participation", [
-          `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)},</p>`,
-          `<p style="margin:0 0 12px;">Thank you for participating in <strong>${escapeHtml(payload.event_title)}</strong>. We hope you had a great experience!</p>`,
-          `<p style="margin:0;">Please find your certificate attached to this email.</p>`,
+          \<p style="margin:0 0 4px;">Hi \,</p>\,
+          \<p style="margin:0 0 12px;">Thank you for participating in <strong>\</strong>. We hope you had a great experience!</p>\,
+          \<p style="margin:0;">Please find your certificate attached to this email.</p>\,
         ].join("")),
         text: [
-          `Hi ${first},`,
+          \Hi \,\,
           "",
-          `Thank you for participating in ${payload.event_title}. We hope you had a great experience!`,
+          \Thank you for participating in \. We hope you had a great experience!\,
           "",
           "Please find your certificate attached to this email.",
         ].join("\n"),
       };
     }
   }
-}
 
-function escapeHtml(value: string): string {
+  function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
 
 
