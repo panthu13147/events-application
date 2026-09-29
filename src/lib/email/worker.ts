@@ -64,7 +64,7 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
         })
         .eq("id", job.id);
 
-      console.error(email job \ (\) failed:, message);
+      console.error(`email job ${job.id} (${job.template}) failed:`, message);
       failed += 1;
     }
   }
@@ -116,7 +116,7 @@ async function attachmentsFor(
 
     return [
       {
-        filename: \\_Certificate.pdf\,
+        filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
         content: Buffer.from(contentBytes),
         contentType: "application/pdf",
       },
