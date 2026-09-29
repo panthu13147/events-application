@@ -104,31 +104,11 @@ async function attachmentsFor(
   }
 
   if (template === "certificate") {
-    const slug = (payload as any).event_slug || "";
-    const answers = (payload as any).answers || {};
-    const teamName = answers.team_name || answers.Team || answers.team || "";
-
-    const teamMembers = (payload as any).team_members as { name: string; email: string }[] | undefined;
-    if (teamMembers && Array.isArray(teamMembers) && teamMembers.length > 0) {
-      const attachments: Attachment[] = [];
-      for (const member of teamMembers) {
-        let certBytes: Uint8Array;
-        if (slug.includes("knowbuild")) {
-          certBytes = await generateKnowbuildCertificatePdf(member.name, teamName);
-        } else {
-          certBytes = await generateCertificatePdf(member.name, { eventTitle: payload.event_title });
-        }
-        attachments.push({
-          filename: `${member.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-          content: Buffer.from(certBytes),
-          contentType: "application/pdf",
-        });
-      }
-      return attachments;
-    }
-
     let contentBytes;
+    const slug = (payload as any).event_slug || "";
     if (slug.includes("knowbuild")) {
+      const answers = (payload as any).answers || {};
+      const teamName = answers.team_name || answers.Team || answers.team || "";
       contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
     } else {
       contentBytes = await generateCertificatePdf(payload.name, { eventTitle: payload.event_title });

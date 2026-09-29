@@ -8,7 +8,6 @@ import { eventSendsEmail } from "@/lib/email/queue";
 const bodySchema = z.object({
   eventId: z.string(),
   registrationIds: z.array(z.string().uuid()).optional(),
-  deliveryMode: z.enum(["individual", "leader_only"]).optional().default("individual"),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { eventId, registrationIds, deliveryMode } = parsed.data;
+  const { eventId, registrationIds } = parsed.data;
 
   // This route writes to email_jobs directly rather than through
   // enqueueEmail, so it has to run the no-email check itself — see
@@ -52,45 +51,34 @@ export async function POST(req: NextRequest) {
     const answers = (r.answers as Record<string, any>) || {};
     const teamName = answers.team_name || answers.Team || answers.team || "";
 
-    // Gather all team members for this registration
-    const members: { name: string; email: string }[] = [];
+    // 1. Team Leader
     if (r.full_name?.trim() && r.email?.trim()) {
-      members.push({ name: r.full_name.trim(), email: r.email.trim() });
+      jobs.push({
+        registration_id: r.id,
+        to: r.email.trim(),
+        template: "certificate",
+        status: "QUEUED" as const,
+        payload: {
+          name: r.full_name.trim(),
+          event_title: event?.title || "S4DS Event",
+          event_slug: event?.slug || "",
+          answers: { ...answers, team_name: teamName },
+        },
+      });
     }
 
+    // 2. Teammates (Member 2, Member 3, Member 4)
     for (const num of [2, 3, 4]) {
       const mName = answers[`member${num}_name`]?.trim();
       const mEmail = answers[`member${num}_email`]?.trim();
       if (mName && mEmail) {
-        members.push({ name: mName, email: mEmail });
-      }
-    }
-
-    if (deliveryMode === "leader_only" && members.length > 1) {
-      // Send a single email to the leader with all certificates attached
-      jobs.push({
-        registration_id: r.id,
-        to: r.email,
-        template: "certificate",
-        status: "QUEUED" as const,
-        payload: {
-          name: r.full_name,
-          event_title: event?.title || "S4DS Event",
-          event_slug: event?.slug || "",
-          answers: { ...answers, team_name: teamName },
-          team_members: members,
-        },
-      });
-    } else {
-      // Send individual emails to each member with their own certificate
-      for (const m of members) {
         jobs.push({
           registration_id: r.id,
-          to: m.email,
+          to: mEmail,
           template: "certificate",
           status: "QUEUED" as const,
           payload: {
-            name: m.name,
+            name: mName,
             event_title: event?.title || "S4DS Event",
             event_slug: event?.slug || "",
             answers: { ...answers, team_name: teamName },

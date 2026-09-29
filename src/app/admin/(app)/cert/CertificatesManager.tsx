@@ -74,7 +74,6 @@ export function CertificatesManager({
   eventDays: EventDay[];
   registrations: Registration[];
 }) {
-  const [deliveryMode, setDeliveryMode] = useState<"individual" | "leader_only">("individual");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<"all" | "selected" | null>(null);
   const [confirming, setConfirming] = useState<"all" | "selected" | null>(null);
@@ -137,7 +136,6 @@ export function CertificatesManager({
         body: JSON.stringify({
           eventId: event.id,
           registrationIds: idsToSend,
-          deliveryMode,
         }),
       });
 
@@ -174,36 +172,11 @@ export function CertificatesManager({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-medium">
-            {registrations.length} attendees
+            {registrations.length} attendees / teams
             <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {eligibleRegistrations.length} came to every day
+              {eligibleRegistrations.length} attended all days
             </span>
           </h2>
-          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Delivery:</span>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="radio"
-                name="deliveryMode"
-                value="individual"
-                checked={deliveryMode === "individual"}
-                onChange={() => setDeliveryMode("individual")}
-                className="size-3 text-primary"
-              />
-              <span>Individual (each member gets their own email)</span>
-            </label>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input
-                type="radio"
-                name="deliveryMode"
-                value="leader_only"
-                checked={deliveryMode === "leader_only"}
-                onChange={() => setDeliveryMode("leader_only")}
-                className="size-3 text-primary"
-              />
-              <span>All certs to team leader</span>
-            </label>
-          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {totalDays > 0 ? (
