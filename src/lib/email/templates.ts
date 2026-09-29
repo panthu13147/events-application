@@ -355,3 +355,4 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+
