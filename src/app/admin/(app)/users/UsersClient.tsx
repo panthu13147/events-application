@@ -65,11 +65,20 @@ function useAdminUserAction() {
     setBusyId(key);
     setError(null);
 
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // Offline or the request was aborted — nothing reached the server, so say
+      // so and release the button instead of leaving the row stuck on busy.
+      setError("Couldn't reach the server. Check your connection and try again.");
+      setBusyId(null);
+      return false;
+    }
 
     const payload = await response.json().catch(() => ({}));
 

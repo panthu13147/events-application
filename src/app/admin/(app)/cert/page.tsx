@@ -9,6 +9,16 @@ export const metadata = { title: "Certificates" };
 
 type Params = { searchParams: Promise<{ event?: string }> };
 
+/**
+ * Distinct days a person scanned in for. Counted through a Set rather than
+ * `attendance.length` so a stray duplicate row can never inflate someone above
+ * the number of days the event actually has.
+ */
+function daysAttended(row: { attendance?: unknown }) {
+  const rows = Array.isArray(row.attendance) ? row.attendance : [];
+  return new Set(rows.map((a: { event_day_id: string }) => a.event_day_id)).size;
+}
+
 export default async function CertificatesPage({ searchParams }: Params) {
   const selectedSlug = (await searchParams).event;
 
@@ -33,7 +43,6 @@ export default async function CertificatesPage({ searchParams }: Params) {
       .order("day_number", { ascending: true });
       
     fetchedEventDays = eventDays || [];
-    const totalDays = fetchedEventDays.length;
 
     const { data: regs, error: regsError } = await db
       .from("registrations")
@@ -66,7 +75,11 @@ export default async function CertificatesPage({ searchParams }: Params) {
         cert_status,
         attendance: r.attendance || []
       };
-    });
+    })
+    // Whoever turned up most is who you're most likely to be issuing to, so put
+    // them at the top. Sorting has to happen here rather than in the query —
+    // PostgREST can't order by the size of an embedded relation.
+    .sort((a, b) => daysAttended(b) - daysAttended(a) || a.full_name.localeCompare(b.full_name));
   }
 
   return (

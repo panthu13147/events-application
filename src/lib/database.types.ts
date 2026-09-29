@@ -34,6 +34,10 @@ type EventRow = {
   starts_at: string;
   ends_at: string;
   capacity: number | null;
+  /** Key in `registrations.answers` that partitions capacity. Null = no cap. */
+  slot_answer_key: string | null;
+  /** How many registrations each distinct answer to that key accepts. */
+  slot_capacity: number | null;
   status: EventStatus;
   registration_opens_at: string | null;
   registration_closes_at: string | null;
@@ -142,7 +146,8 @@ export type Database = {
       events: {
         Row: EventRow;
         Insert: Insert<EventRow, "id" | "created_at" | "updated_at" | "status" |
-          "form_key" | "requires_payment" | "auto_approve" | "certificate_enabled">;
+          "form_key" | "requires_payment" | "auto_approve" | "certificate_enabled" |
+          "slot_answer_key" | "slot_capacity">;
         Update: Partial<EventRow>;
         Relationships: [];
       };

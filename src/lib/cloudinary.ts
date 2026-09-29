@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "crypto";
 import { v2 as cloudinary } from "cloudinary";
 
 /**
@@ -56,6 +57,55 @@ export async function uploadPaymentProof(
 /** Short-lived signed URL for showing a proof in the admin table. */
 export function getPaymentProofUrl(publicId: string): string {
   return client().url(publicId, {
+    type: "authenticated",
+    sign_url: true,
+    secure: true,
+  });
+}
+
+const DOCUMENT_FOLDER = "s4ds/idea-documents";
+
+/**
+ * Idea proposal / project document uploads (PDF).
+ *
+ * Uploaded `authenticated`, same as a payment proof — NOT because the content
+ * is sensitive, but because Cloudinary blocks unauthenticated delivery of
+ * raw PDF/ZIP files by default (a 2024 anti-abuse default: 401 Unauthorized
+ * on the plain `secure_url`, even though the upload itself succeeds). That
+ * default is a per-account toggle under Settings -> Security, off by default
+ * for every account created since — signing the URL sidesteps needing that
+ * toggle changed at all.
+ *
+ * Returns the public_id, which is what gets stored in `answers`. Use
+ * getIdeaDocumentUrl() to turn it into something openable.
+ */
+export async function uploadIdeaDocument(
+  buffer: Buffer,
+  mimeType: string,
+  slug: string,
+): Promise<string> {
+  const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+
+  const result = await client().uploader.upload(dataUri, {
+    folder: `${DOCUMENT_FOLDER}/${slug}`,
+    resource_type: "raw",
+    type: "authenticated",
+    // A `raw` resource has no format of its own — without an extension on the
+    // public_id, the delivery URL ends in an opaque id (".../qi7rc680gr4vn7")
+    // and browsers download it instead of opening it, since there's nothing
+    // to tell them it's a PDF. Setting the public_id ourselves, ending in
+    // ".pdf", is more reliable than `use_filename` (unicode/odd filenames,
+    // or a client that doesn't send one at all).
+    public_id: `${randomUUID()}.pdf`,
+  });
+
+  return result.public_id;
+}
+
+/** Signed URL for opening an idea proposal document. */
+export function getIdeaDocumentUrl(publicId: string): string {
+  return client().url(publicId, {
+    resource_type: "raw",
     type: "authenticated",
     sign_url: true,
     secure: true,

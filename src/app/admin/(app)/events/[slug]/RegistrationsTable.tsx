@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import type { FieldDef } from "@/lib/form-types";
 
 export type Row = {
   id: string;
@@ -36,6 +37,12 @@ const REJECT_REASONS = [
   },
 ] as const;
 
+/**
+ * fetch() only rejects when nothing reached the server — offline, or the tab
+ * cancelled the request. Say that plainly, and release the row either way.
+ */
+const offline = "Couldn't reach the server. Check your connection and try again.";
+
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   APPROVED: "default",
   PENDING: "secondary",
@@ -44,7 +51,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
   CANCELLED: "outline",
 };
 
-export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: string[] }) {
+export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: FieldDef[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -61,11 +68,18 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
     setBusyId(id);
     setError(null);
 
-    const response = await fetch(`/api/admin/registrations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, reason }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`/api/admin/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason }),
+      });
+    } catch {
+      setError(offline);
+      setBusyId(null);
+      return;
+    }
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -87,7 +101,14 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
     setBusyId(id);
     setError(null);
 
-    const response = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" });
+    let response: Response;
+    try {
+      response = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" });
+    } catch {
+      setError(offline);
+      setBusyId(null);
+      return;
+    }
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -258,12 +279,28 @@ export function RegistrationsTable({ rows, fields }: { rows: Row[]; fields: stri
 
               {fields.length > 0 ? (
                 <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
-                  {fields.map((key) => (
-                    <div key={key} className="flex gap-1.5">
-                      <dt className="opacity-70">{key.replace(/_/g, " ")}:</dt>
-                      <dd className="font-medium text-foreground">{row.answers[key] ?? "-"}</dd>
-                    </div>
-                  ))}
+                  {fields.map((field) => {
+                    const value = row.answers[field.key];
+                    return (
+                      <div key={field.key} className="flex gap-1.5">
+                        <dt className="opacity-70">{field.key.replace(/_/g, " ")}:</dt>
+                        <dd className="font-medium text-foreground">
+                          {field.type === "file" && value ? (
+                            <a
+                              href={value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                            >
+                              Open PDF <ExternalLink className="size-3" />
+                            </a>
+                          ) : (
+                            (value ?? "-")
+                          )}
+                        </dd>
+                      </div>
+                    );
+                  })}
                 </dl>
               ) : null}
             </li>

@@ -60,6 +60,7 @@ export async function PATCH(
   if (changed && (data.status === "APPROVED" || data.status === "REJECTED")) {
     await enqueueEmail({
       to: data.email,
+      event_id: data.event_id,
       template: data.status === "APPROVED" ? "approved" : "rejected",
       registration_id: data.id,
       payload: {

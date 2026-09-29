@@ -2,6 +2,7 @@ import { db } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 import { requireRole, AuthError } from "@/lib/auth";
 import { getFormFields } from "@/config/forms";
+import { getIdeaDocumentUrl } from "@/lib/cloudinary";
 
 /**
  * CSV export of everyone registered for an event.
@@ -86,7 +87,14 @@ export async function GET(
       row.full_name,
       row.email,
       row.phone ?? "",
-      ...fields.map((field) => String(answers[field.key] ?? "")),
+      ...fields.map((field) => {
+        const value = String(answers[field.key] ?? "");
+        // Stored as a Cloudinary public_id, not a URL — sign it here so the
+        // link is openable, rather than resolving it in a separate pass that
+        // reflows the CSV and misaligns columns.
+        if (field.type === "file" && value) return getIdeaDocumentUrl(value);
+        return value;
+      }),
       ...perDay,
       String(perDay.filter((value) => value === "yes").length),
       // The proof itself is only viewable in the admin UI — signed Cloudinary

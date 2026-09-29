@@ -73,6 +73,26 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
+  /*
+   * Response-summary charts. The rest of the UI is deliberately greyscale, so
+   * --chart-1..5 are five steps of grey — fine as surface tones, useless as
+   * category colours. These five carry identity instead, and their ORDER is the
+   * accessibility mechanism: consecutive slices around a pie are the pairs a
+   * reader has to tell apart, and this sequence (including the last-to-first
+   * wrap) clears the colourblind and normal-vision separation floors against
+   * both card surfaces. Reordering them silently breaks that — re-validate if
+   * you touch it. Aqua, yellow and magenta sit under 3:1 on the light card, so
+   * every chart also labels its slices in text.
+   */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  /* Everything past the fifth slice folds into one neutral row. */
+  --viz-other: oklch(0.556 0 0);
+
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -108,6 +128,15 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
+  /* Same five hues, re-stepped for the dark card — not an automatic flip. */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-other: oklch(0.708 0 0);
+
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

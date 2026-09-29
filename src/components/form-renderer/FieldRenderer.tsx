@@ -1,6 +1,6 @@
 "use client";
 
-import type { FieldDef } from "@/lib/form-types";
+import type { FieldDef, SlotAvailability } from "@/lib/form-types";
 import {
   BrandInput,
   BrandLabel,
@@ -24,11 +24,14 @@ export function FieldRenderer({
   value,
   error,
   onChange,
+  availability,
 }: {
   field: FieldDef;
   value: unknown;
   error?: string;
   onChange: (value: unknown) => void;
+  /** Set only on the one field an event caps by answer. */
+  availability?: SlotAvailability;
 }) {
   const id = `field-${field.key}`;
   const describedBy = [field.hint ? `${id}-hint` : null, error ? `${id}-error` : null]
@@ -50,12 +53,22 @@ export function FieldRenderer({
 
       {field.hint ? (
         field.emphasiseHint ? (
-          <p
+          <div
             id={`${id}-hint`}
-            className="mt-2 max-w-[62ch] rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_30%,transparent)] px-3 py-2 text-xs font-bold leading-relaxed"
+            className="mt-2 w-full rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_30%,transparent)] px-3 py-2"
           >
-            {field.hint}
-          </p>
+            <p className="text-xs font-bold leading-relaxed">{field.hint}</p>
+            {field.link ? (
+              <a
+                href={field.link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-block text-base font-black text-blue-600 underline underline-offset-4 hover:text-blue-800"
+              >
+                {field.link.label} ↗
+              </a>
+            ) : null}
+          </div>
         ) : (
           <p
             id={`${id}-hint`}
@@ -74,6 +87,7 @@ export function FieldRenderer({
           onChange={onChange}
           describedBy={describedBy || undefined}
           invalid={Boolean(error)}
+          availability={availability}
         />
       </div>
 
@@ -98,6 +112,17 @@ const OPTION_BASE =
 const OPTION_COMPACT =
   "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--s4ds-r-sm)] border-2 px-3.5 py-2 text-sm transition-colors duration-150";
 
+/**
+ * How many places are left on one option, or null when the field isn't capped.
+ *
+ * Clamped at zero: a slot can legitimately go over its capacity if an admin
+ * approves a rejected team back in, and "-1 left" helps nobody.
+ */
+function placesLeft(option: string, availability?: SlotAvailability): number | null {
+  if (!availability) return null;
+  return Math.max(0, availability.capacity - (availability.used[option] ?? 0));
+}
+
 function FieldInput({
   id,
   field,
@@ -105,6 +130,7 @@ function FieldInput({
   onChange,
   describedBy,
   invalid,
+  availability,
 }: {
   id: string;
   field: FieldDef;
@@ -112,6 +138,7 @@ function FieldInput({
   onChange: (value: unknown) => void;
   describedBy?: string;
   invalid: boolean;
+  availability?: SlotAvailability;
 }) {
   const common = {
     id,
@@ -128,11 +155,18 @@ function FieldInput({
           onChange={(event) => onChange(event.target.value)}
         >
           <option value="">Select…</option>
-          {field.options?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+          {field.options?.map((option) => {
+            const left = placesLeft(option, availability);
+            // A full option stays visible but unselectable. Removing it would
+            // leave someone who was told about it hunting for an entry that
+            // isn't there, with no explanation.
+            return (
+              <option key={option} value={option} disabled={left === 0}>
+                {option}
+                {left === null ? "" : left === 0 ? "  — FULL" : `  (${left} of ${availability!.capacity} left)`}
+              </option>
+            );
+          })}
         </BrandSelect>
       );
 

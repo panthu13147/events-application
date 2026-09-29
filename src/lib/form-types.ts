@@ -8,7 +8,8 @@ export type FieldType =
   | "select"
   | "radio"
   | "checkbox"
-  | "textarea";
+  | "textarea"
+  | "file";
 
 export type FieldDef = {
   /** Key in Registration.answers. Stable — renaming it orphans existing data. */
@@ -27,6 +28,49 @@ export type FieldDef = {
   emphasiseHint?: boolean;
   /** Required for select / radio */
   options?: string[];
+  /** `<input accept>` for type "file". Defaults to PDF. */
+  accept?: string;
+  /**
+   * A prominent, clickable link rendered under the hint — for pointing at a
+   * reference doc or template. Kept apart from `hint` (plain text) rather than
+   * inlining a raw URL in the sentence, which reads worse and isn't tappable.
+   */
+  link?: { label: string; href: string };
+  /**
+   * Only render (and only require) this field when another field's answer is
+   * one of these values. Used for track-dependent questions — an "existing
+   * project" question that shows up regardless of track would just confuse
+   * whoever picked "new idea".
+   *
+   * Deliberately narrow: exact-match-on-one-other-field is what every
+   * conditional field in these forms has needed so far. Reach for something
+   * richer only once a form actually needs it.
+   */
+  showIf?: { key: string; oneOf: string[] };
+};
+
+/** Whether `field` should be shown/required, given the answers so far. */
+export function isFieldActive(field: FieldDef, answers: Record<string, unknown>): boolean {
+  if (!field.showIf) return true;
+  const guard = answers[field.showIf.key];
+  return typeof guard === "string" && field.showIf.oneOf.includes(guard);
+}
+
+/**
+ * Per-option availability for the one field an event caps by answer.
+ *
+ * Only ever advisory. The database decides whether a place exists
+ * (register_for_event, supabase/migrations/0008_slot_capacity.sql) — this
+ * exists so someone can see what's left before typing everything out, rather
+ * than being told after they submit.
+ */
+export type SlotAvailability = {
+  /** `FieldDef.key` of the capped question. */
+  fieldKey: string;
+  /** Places per option. */
+  capacity: number;
+  /** Places already held, keyed by the exact option string. Absent = zero. */
+  used: Record<string, number>;
 };
 
 /**
@@ -37,10 +81,19 @@ export function buildAnswersSchema(fields: FieldDef[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const field of fields) {
-    const required = field.required ?? false;
+    // A conditional field can't be required at the shape level — Zod has no
+    // way to see a sibling answer there. Required-when-active is enforced
+    // below instead, once the whole object is available.
+    const required = (field.required ?? false) && !field.showIf;
     let schema: z.ZodTypeAny;
 
     switch (field.type) {
+      case "file":
+        schema = required
+          ? z.string().trim().min(1, `${field.label} is required`).max(300)
+          : z.string().trim().max(300);
+        break;
+
       case "email":
         schema = z.email({ message: "Enter a valid email address" });
         break;
@@ -87,5 +140,26 @@ export function buildAnswersSchema(fields: FieldDef[]) {
     shape[field.key] = required ? schema : schema.optional();
   }
 
-  return z.object(shape);
+  const object = z.object(shape);
+
+  // Conditional fields (member 3/4, track-specific questions) are optional at
+  // the shape level above — a sibling answer decides whether they're actually
+  // required, which only this second pass can see.
+  const conditional = fields.filter((field) => field.required && field.showIf);
+  if (conditional.length === 0) return object;
+
+  return object.superRefine((data, ctx) => {
+    for (const field of conditional) {
+      if (!isFieldActive(field, data)) continue;
+      const value = data[field.key];
+      const empty =
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        (typeof value === "string" && value.trim() === "");
+      if (empty) {
+        ctx.addIssue({ code: "custom", message: `${field.label} is required`, path: [field.key] });
+      }
+    }
+  });
 }

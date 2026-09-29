@@ -2,6 +2,9 @@ import "server-only";
 import { db } from "@/lib/supabase";
 import { formatEventDates, formatFee } from "@/lib/events";
 import { ticketUrl } from "@/lib/email/queue";
+import { getEventFeatures } from "@/config/event-features";
+import { getCommunityGroup } from "@/config/community";
+import { getSelectionInfo } from "@/config/selection";
 import type { TemplatePayload } from "@/lib/email/templates";
 
 /**
@@ -19,13 +22,17 @@ export async function emailPayload(
   const [{ data: event }, { count: dayCount }] = await Promise.all([
     db
       .from("events")
-      .select("title, starts_at, ends_at, venue, requires_payment, fee_amount")
+      // `slug` is selected for formatEventDates, not for a link: it's how the
+      // formatter knows the dates are a scheduled-TBA placeholder. Without it
+      // the confirmation email would print a date the site refuses to show.
+      .select("slug, title, starts_at, ends_at, venue, requires_payment, fee_amount")
       .eq("id", eventId)
       .single(),
     db.from("event_days").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
 
   const days = dayCount ?? 1;
+  const features = event ? getEventFeatures(event.slug) : null;
 
   return {
     name,
@@ -42,5 +49,9 @@ export async function emailPayload(
         ? `Your ${formatFee(event.fee_amount)} deposit is refunded in full once you check in on Day ${days}.`
         : `Your ${formatFee(event.fee_amount)} deposit is refunded in full once you check in at the door.`
       : null,
+    has_ticket: features?.ticket,
+    community: event ? getCommunityGroup(event.slug) : null,
+    // Only the "approved" template reads this — harmless on the others.
+    selection: event ? getSelectionInfo(event.slug) : null,
   };
 }

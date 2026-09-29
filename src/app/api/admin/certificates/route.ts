@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/supabase";
+import { eventSendsEmail } from "@/lib/email/queue";
 
 const bodySchema = z.object({
   eventId: z.string(),
@@ -18,6 +19,16 @@ export async function POST(req: NextRequest) {
   }
 
   const { eventId, registrationIds } = parsed.data;
+
+  // This route writes to email_jobs directly rather than through
+  // enqueueEmail, so it has to run the no-email check itself — see
+  // src/config/event-features.
+  if (!(await eventSendsEmail(eventId))) {
+    return NextResponse.json({
+      queued: 0,
+      skipped: "This event does not send email. Certificates were not queued.",
+    });
+  }
 
   let query = db
     .from("registrations")

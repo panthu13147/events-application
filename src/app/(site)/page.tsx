@@ -154,8 +154,7 @@ export default async function Home() {
           </h1>
 
           <p className="mt-8 max-w-[52ch] text-lg leading-relaxed text-[var(--s4ds-ink-dim)] text-pretty">
-            Everything the Society for Data Science runs at KJSIT. Register,
-            get your QR, walk in.
+            Everything the Society for Data Science runs at KJSIT.
           </p>
 
           {open.length > 0 ? (

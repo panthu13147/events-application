@@ -14,7 +14,19 @@ export type SendArgs = {
   html: string;
   /** Always provide one. A missing plain-text part hurts spam placement. */
   text: string;
-  attachments?: { filename: string; content: Buffer; cid?: string }[];
+  /**
+   * `cid` turns an attachment into an inline image the HTML can reference; the
+   * QR and the WhatsApp mark use it. `contentType` is for the ones that stay
+   * attachments, like the certificate PDF. Content is a Buffer because that is
+   * what nodemailer's own types accept — callers holding a Uint8Array (pdf-lib
+   * returns one) wrap it in Buffer.from() rather than widening this.
+   */
+  attachments?: {
+    filename: string;
+    content: Buffer;
+    cid?: string;
+    contentType?: string;
+  }[];
 };
 
 let transporter: Transporter | null = null;

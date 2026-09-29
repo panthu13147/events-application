@@ -38,32 +38,7 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
     try {
       const payload = job.payload as unknown as TemplatePayload;
       const { subject, html, text } = renderEmail(job.template as TemplateName, payload);
-
-      let attachments;
-      if (job.template === "approved" && payload.code) {
-        attachments = [
-          { filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" },
-          { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
-        ];
-      } else if (job.template === "certificate") {
-        let contentBytes;
-        const slug = (payload as any).event_slug || "";
-        if (slug.includes("knowbuild")) {
-          const answers = (payload as any).answers || {};
-          const teamName = answers.team_name || answers.Team || answers.team || "";
-          contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
-        } else {
-          contentBytes = await generateCertificatePdf(payload.name);
-        }
-
-        attachments = [
-          {
-            filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-            content: contentBytes,
-            contentType: "application/pdf",
-          },
-        ];
-      }
+      const attachments = await attachmentsFor(job.template as TemplateName, payload);
 
       await sendEmail({ to: job.to, subject, html, text, attachments });
 
@@ -76,7 +51,7 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : String(sendError);
 
-      // Under the attempt cap it goes back to QUEUED and the next run retries â€”
+      // Under the attempt cap it goes back to QUEUED and the next run retries —
       // which is how a daily Gmail rate limit resolves itself overnight.
       const giveUp = job.attempts >= MAX_ATTEMPTS;
 
@@ -89,7 +64,7 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
         })
         .eq("id", job.id);
 
-      console.error(`email job ${job.id} (${job.template}) failed:`, message);
+      console.error(email job \ (\) failed:, message);
       failed += 1;
     }
   }
@@ -97,8 +72,62 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
   return { claimed: jobs.length, sent, failed };
 }
 
+type Attachment = { filename: string; content: Buffer; cid?: string; contentType?: string };
+
 /**
- * The QR must encode qr_token, not the code â€” but the queue payload only
+ * What to attach, kept in one place so the two send paths below can't drift.
+ * Must agree with templates.ts about when each cid actually appears in the
+ * HTML — an attachment nothing references is harmless, but a cid referenced
+ * with nothing attached renders as a broken image.
+ */
+async function attachmentsFor(
+  template: TemplateName,
+  payload: TemplatePayload,
+): Promise<Attachment[] | undefined> {
+  if (template === "approved" && payload.code) {
+    const attachments: Attachment[] = [
+      { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
+    ];
+    // has_ticket === false means this event issues no QR at all (see
+    // event-features.ticket) — the template already skips the <img
+    // src="cid:ticket-qr">, so attaching one anyway would just be dead weight.
+    if (payload.has_ticket !== false) {
+      attachments.push({ filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" });
+    }
+    return attachments;
+  }
+
+  // "confirmation" only renders a WhatsApp button when the event has a
+  // community group configured — see communityButton() in templates.ts.
+  if (template === "confirmation" && payload.community) {
+    return [{ filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" }];
+  }
+
+  if (template === "certificate") {
+    let contentBytes;
+    const slug = (payload as any).event_slug || "";
+    if (slug.includes("knowbuild")) {
+      const answers = (payload as any).answers || {};
+      const teamName = answers.team_name || answers.Team || answers.team || "";
+      contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
+    } else {
+      contentBytes = await generateCertificatePdf(payload.name, { eventTitle: payload.event_title });
+    }
+
+    return [
+      {
+        filename: \\_Certificate.pdf\,
+        content: Buffer.from(contentBytes),
+        contentType: "application/pdf",
+      },
+    ];
+  }
+
+  return undefined;
+}
+
+/**
+ * The QR must encode qr_token, not the code — but the queue payload only
  * carries display data, so look the token up at send time. That also means a
  * ticket revoked before the email goes out simply won't carry a working code.
  */
@@ -133,32 +162,7 @@ export async function sendEmailJob(id: string): Promise<boolean> {
   try {
     const payload = job.payload as unknown as TemplatePayload;
     const { subject, html, text } = renderEmail(job.template as TemplateName, payload);
-
-    let attachments;
-    if (job.template === "approved" && payload.code) {
-      attachments = [
-        { filename: "ticket-qr.png", content: await qrPng(payload), cid: "ticket-qr" },
-        { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
-      ];
-    } else if (job.template === "certificate") {
-      let contentBytes;
-      const slug = (payload as any).event_slug || "";
-      if (slug.includes("knowbuild")) {
-        const answers = (payload as any).answers || {};
-        const teamName = answers.team_name || answers.Team || answers.team || "";
-        contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
-      } else {
-        contentBytes = await generateCertificatePdf(payload.name);
-      }
-
-      attachments = [
-        {
-          filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-          content: contentBytes,
-          contentType: "application/pdf",
-        },
-      ];
-    }
+    const attachments = await attachmentsFor(job.template as TemplateName, payload);
 
     await sendEmail({ to: job.to, subject, html, text, attachments });
 

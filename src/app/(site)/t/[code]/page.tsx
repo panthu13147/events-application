@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { formatDayDate, formatEventDates } from "@/lib/events";
+import { getCommunityGroup } from "@/config/community";
+import { getEventFeatures } from "@/config/event-features";
 import { TicketQR } from "./TicketQR";
 import { accentBlock, type Accent } from "@/components/s4ds";
 
@@ -50,6 +52,11 @@ export default async function TicketPage({
   if (!event) notFound();
 
   const attended = new Set((attendance ?? []).map((row) => row.event_day_id));
+  const group = getCommunityGroup(event.slug);
+  const features = getEventFeatures(event.slug);
+  // The ticket showed `formatDayDate(day.date)` unconditionally, which leaks
+  // the placeholder date the rest of the site hides for a scheduled-TBA event.
+  const datesTba = features.scheduleTba;
   const pending = registration.status === "PENDING";
   const waitlisted = registration.status === "WAITLISTED";
   const rejected = registration.status === "REJECTED" || registration.status === "CANCELLED";
@@ -62,6 +69,100 @@ export default async function TicketPage({
       : pending
         ? { accent: "yellow", label: "Awaiting approval" }
         : { accent: "green", label: "Ready to scan" };
+
+  // No ticket, no QR: this page is just the confirmation, and the group link is
+  // the only thing on it worth acting on. Rendering the stub anyway would put a
+  // scannable-looking QR in front of someone at an event with no door check —
+  // they'd hold up a phone at a volunteer who has nothing to scan it with.
+  if (!features.ticket) {
+    return (
+      <main className="mx-auto w-full max-w-md px-6 py-12 sm:py-16">
+        <div className="rounded-[var(--s4ds-r-sm)] border-[3px] border-[var(--s4ds-edge)] bg-[var(--s4ds-bone)] text-[var(--s4ds-ink-invert)] shadow-[var(--s4ds-shadow-lg)]">
+          <div
+            className={`border-b-[3px] border-[var(--s4ds-edge)] px-5 py-2.5 text-xs font-black uppercase tracking-[0.14em] ${accentBlock(status.accent)}`}
+          >
+            S4DS · KJSIT
+          </div>
+
+          <div className="px-6 py-7 text-center">
+            <h1 className="text-2xl font-black uppercase leading-[1.05] tracking-[-0.02em] text-balance">
+              {event.title}
+            </h1>
+
+            <p className="mt-5 text-lg font-black tracking-[-0.01em]">
+              {registration.full_name}
+            </p>
+            <p className="mt-1 font-mono text-lg font-bold tracking-[0.28em] text-[var(--s4ds-ink-invert-dim)]">
+              {registration.code}
+            </p>
+
+            <p className="mt-5 rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] px-4 py-3 text-sm leading-snug">
+              {rejected ? (
+                <>
+                  <strong className="font-black">
+                    This registration is no longer valid.
+                  </strong>{" "}
+                  Talk to the organisers if you think that&apos;s a mistake.
+                </>
+              ) : waitlisted ? (
+                <>
+                  <strong className="font-black">
+                    The event was full when you signed up.
+                  </strong>{" "}
+                  You&apos;re on the waitlist and we&apos;ll be in touch if a place opens up.
+                </>
+              ) : pending ? (
+                <>
+                  <strong className="font-black">You&apos;re registered.</strong> An
+                  organiser is reviewing your team — quote the code above if you need to
+                  ask about it.
+                </>
+              ) : (
+                <>
+                  <strong className="font-black">You&apos;re in.</strong> Quote the code
+                  above if you need to ask us anything.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {group && !rejected ? (
+          <a
+            href={group.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 flex items-center justify-between gap-4 rounded-[var(--s4ds-r-sm)] border-[3px] border-[var(--s4ds-edge)] bg-[var(--s4ds-green)] px-5 py-4 text-[var(--s4ds-bone)] shadow-[var(--s4ds-shadow)] transition-[transform,box-shadow] duration-150 ease-[var(--s4ds-ease)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[var(--s4ds-shadow-lg)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[var(--s4ds-shadow-press)]"
+          >
+            <span>
+              <span className="block text-base font-black tracking-[-0.01em]">
+                {group.label}
+              </span>
+              <span className="mt-1 block text-sm leading-snug opacity-90 text-pretty">
+                {group.reason}
+              </span>
+            </span>
+            <span aria-hidden className="shrink-0 text-xl font-black">
+              →
+            </span>
+          </a>
+        ) : null}
+
+        <p className="mt-6 text-center text-sm text-[var(--s4ds-ink-dim)] text-pretty">
+          {/* Only true for events with no email at all (e.g. Mahakumbh) —
+              for one that does mail a copy (e.g. Knowbuild), saying so here
+              would just be wrong. */}
+          {features.email ? "Bookmark this page." : "Bookmark this page — we don't email a copy."}{" "}
+          <Link
+            href={`/${event.slug}`}
+            className="font-bold text-[var(--s4ds-yellow)] underline underline-offset-4"
+          >
+            Event details
+          </Link>
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-12 sm:py-16">
@@ -139,9 +240,11 @@ export default async function TicketPage({
                 >
                   <div>
                     <p className="font-black">{day.label ?? `Day ${day.day_number}`}</p>
-                    <p className="text-xs text-[var(--s4ds-ink-invert-dim)]">
-                      {formatDayDate(day.date)}
-                    </p>
+                    {datesTba ? null : (
+                      <p className="text-xs text-[var(--s4ds-ink-invert-dim)]">
+                        {formatDayDate(day.date)}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] px-2 py-1 text-xs font-black uppercase tracking-[0.04em] leading-none ${
@@ -158,6 +261,31 @@ export default async function TicketPage({
           </ul>
         ) : null}
       </div>
+
+      {group && !rejected ? (
+        // Below the ticket, not inside it: the stub is the thing to screenshot
+        // and this is a thing to tap. For events that send no email, this is
+        // the ONLY channel that reaches someone after they close this page —
+        // so it gets a real button, not a line of small print.
+        <a
+          href={group.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 flex items-center justify-between gap-4 rounded-[var(--s4ds-r-sm)] border-[3px] border-[var(--s4ds-edge)] bg-[var(--s4ds-green)] px-5 py-4 text-[var(--s4ds-bone)] shadow-[var(--s4ds-shadow)] transition-[transform,box-shadow] duration-150 ease-[var(--s4ds-ease)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[var(--s4ds-shadow-lg)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[var(--s4ds-shadow-press)]"
+        >
+          <span>
+            <span className="block text-base font-black tracking-[-0.01em]">
+              {group.label}
+            </span>
+            <span className="mt-1 block text-sm leading-snug opacity-90 text-pretty">
+              {group.reason}
+            </span>
+          </span>
+          <span aria-hidden className="shrink-0 text-xl font-black">
+            →
+          </span>
+        </a>
+      ) : null}
 
       <p className="mt-6 text-center text-sm text-[var(--s4ds-ink-dim)] text-pretty">
         Bookmark this page. It&apos;s your ticket.{" "}

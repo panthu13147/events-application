@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import type { FieldDef } from "@/lib/form-types";
+import type { FieldDef, SlotAvailability } from "@/lib/form-types";
+import { isFieldActive } from "@/lib/form-types";
 import { FieldRenderer } from "@/components/form-renderer/FieldRenderer";
 import {
   BrandButton,
@@ -25,6 +26,11 @@ type Props = {
    * is already false in this case, so there is no payment step to run.
    */
   waitlisting?: boolean;
+  /**
+   * Per-option availability for the one question this event caps by answer.
+   * Advisory only — the database is what actually refuses a full option.
+   */
+  availability?: SlotAvailability;
 };
 
 type Answers = Record<string, unknown>;
@@ -45,6 +51,73 @@ function FieldError({ id, children }: { id?: string; children: React.ReactNode }
     >
       {children}
     </p>
+  );
+}
+
+/**
+ * A `type: "file"` question. Kept out of FieldRenderer, same as the payment
+ * proof upload below it in this file — the value that ultimately lives in
+ * `answers` is a URL, not the File object this input hands back, so the
+ * upload has to happen somewhere with access to `slug` and the network.
+ */
+function FileField({
+  field,
+  file,
+  uploadedName,
+  error,
+  onChange,
+}: {
+  field: FieldDef;
+  file: File | null;
+  /** Non-empty once this field has already been uploaded (e.g. after going back from payment). */
+  uploadedName: string;
+  error?: string;
+  onChange: (file: File | null) => void;
+}) {
+  const id = `field-${field.key}`;
+  return (
+    <div>
+      <BrandLabel htmlFor={id}>
+        {field.label}
+        {field.required ? <Req /> : null}
+      </BrandLabel>
+      {field.hint ? (
+        field.emphasiseHint ? (
+          <div className="mt-2 w-full rounded-[var(--s4ds-r-sm)] border-2 border-[var(--s4ds-edge)] bg-[color-mix(in_srgb,var(--s4ds-yellow)_30%,transparent)] px-3 py-2">
+            <p className="text-xs font-bold leading-relaxed">{field.hint}</p>
+            {field.link ? (
+              <a
+                href={field.link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-block text-base font-black text-blue-600 underline underline-offset-4 hover:text-blue-800"
+              >
+                {field.link.label} ↗
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-[var(--s4ds-ink-invert-dim)]">
+            {field.hint}
+          </p>
+        )
+      ) : null}
+      <BrandInput
+        id={id}
+        type="file"
+        accept={field.accept ?? "application/pdf"}
+        className="mt-2 h-auto py-2.5 file:mr-3 file:rounded-[var(--s4ds-r-sm)] file:border-2 file:border-[var(--s4ds-edge)] file:bg-[var(--s4ds-yellow)] file:px-3 file:py-1.5 file:text-xs file:font-black file:uppercase file:tracking-[0.04em] file:text-[var(--s4ds-void)]"
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        aria-invalid={Boolean(error) || undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+      />
+      {file ? (
+        <p className="mt-1.5 text-xs text-[var(--s4ds-ink-invert-dim)]">Selected: {file.name}</p>
+      ) : uploadedName ? (
+        <p className="mt-1.5 text-xs text-[var(--s4ds-ink-invert-dim)]">Already uploaded.</p>
+      ) : null}
+      {error ? <FieldError id={`${id}-error`}>{error}</FieldError> : null}
+    </div>
   );
 }
 
@@ -112,6 +185,7 @@ export function RegistrationForm({
   refundTerms,
   paymentQrUrl,
   waitlisting = false,
+  availability,
 }: Props) {
   const router = useRouter();
 
@@ -125,8 +199,18 @@ export function RegistrationForm({
   const [answers, setAnswers] = useState<Answers>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [proof, setProof] = useState<File | null>(null);
+  // Documents (e.g. an idea proposal PDF) selected for any `type: "file"`
+  // field, keyed by `field.key`. Held apart from `answers` because the value
+  // that belongs in `answers` is the uploaded URL, not the File object — the
+  // upload itself only happens once the person moves past this step.
+  const [docFiles, setDocFiles] = useState<Record<string, File | null>>({});
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Track-dependent questions (and anything else gated by `showIf`) are
+  // filtered out here rather than in FieldRenderer, so a hidden field is
+  // simply never rendered, never validated and never uploaded.
+  const visibleFields = fields.filter((field) => isFieldActive(field, answers));
 
   function validateDetails() {
     const next: Record<string, string> = {};
@@ -144,11 +228,33 @@ export function RegistrationForm({
       next.phone = "Enter the number without the country code";
     }
 
-    for (const field of fields) {
+    for (const field of visibleFields) {
       if (!field.required) continue;
+
+      if (field.type === "file") {
+        const hasFile =
+          Boolean(docFiles[field.key]) ||
+          (typeof answers[field.key] === "string" && answers[field.key] !== "");
+        if (!hasFile) next[field.key] = `${field.label} is required`;
+        continue;
+      }
+
       const value = answers[field.key];
       if (value === undefined || value === "" || value === null) {
         next[field.key] = `${field.label} is required`;
+      }
+    }
+
+    // The option can fill up between the page loading and this submit. The
+    // database refuses it either way; catching it here turns a 409 after the
+    // payment step into an inline error next to the field to change.
+    if (availability) {
+      const chosen = answers[availability.fieldKey];
+      if (
+        typeof chosen === "string" &&
+        (availability.used[chosen] ?? 0) >= availability.capacity
+      ) {
+        next[availability.fieldKey] = "That option is full. Choose another one.";
       }
     }
 
@@ -156,19 +262,53 @@ export function RegistrationForm({
     return Object.keys(next).length === 0;
   }
 
-  function onContinue(event: React.FormEvent) {
+  /** Uploads any selected documents and returns `answers` with their URLs merged in. */
+  async function uploadPendingDocuments(): Promise<Answers> {
+    const next = { ...answers };
+
+    for (const field of visibleFields) {
+      if (field.type !== "file") continue;
+      // Already uploaded (e.g. the person went back from the payment step
+      // and returned) — don't upload the same file twice.
+      if (typeof next[field.key] === "string" && next[field.key]) continue;
+
+      const file = docFiles[field.key];
+      if (!file) continue;
+
+      next[field.key] = await uploadDocument(file, slug);
+    }
+
+    return next;
+  }
+
+  async function onContinue(event: React.FormEvent) {
     event.preventDefault();
     if (!validateDetails()) return;
     setFormError(null);
+
+    let effectiveAnswers = answers;
+    if (visibleFields.some((field) => field.type === "file")) {
+      setPending(true);
+      try {
+        effectiveAnswers = await uploadPendingDocuments();
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "Could not upload the document.");
+        setPending(false);
+        return;
+      }
+      setAnswers(effectiveAnswers);
+      setPending(false);
+    }
+
     if (requiresPayment) {
       setStep("payment");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      void submit();
+      void submit(effectiveAnswers);
     }
   }
 
-  async function submit() {
+  async function submit(effectiveAnswers: Answers = answers) {
     setPending(true);
     setFormError(null);
 
@@ -192,7 +332,7 @@ export function RegistrationForm({
         body: JSON.stringify({
           ...contact,
           phone: `${dialCode} ${phoneNumber}`,
-          answers,
+          answers: effectiveAnswers,
           payment_proof_url,
         }),
       });
@@ -388,15 +528,29 @@ export function RegistrationForm({
           </div>
         </div>
 
-        {fields.map((field) => (
-          <FieldRenderer
-            key={field.key}
-            field={field}
-            value={answers[field.key]}
-            error={errors[field.key]}
-            onChange={(value) => setAnswers({ ...answers, [field.key]: value })}
-          />
-        ))}
+        {visibleFields.map((field) =>
+          field.type === "file" ? (
+            <FileField
+              key={field.key}
+              field={field}
+              file={docFiles[field.key] ?? null}
+              uploadedName={String(answers[field.key] ?? "")}
+              error={errors[field.key]}
+              onChange={(file) => setDocFiles({ ...docFiles, [field.key]: file })}
+            />
+          ) : (
+            <FieldRenderer
+              key={field.key}
+              field={field}
+              value={answers[field.key]}
+              error={errors[field.key]}
+              onChange={(value) => setAnswers({ ...answers, [field.key]: value })}
+              availability={
+                availability?.fieldKey === field.key ? availability : undefined
+              }
+            />
+          ),
+        )}
 
         {formError ? <FormError>{formError}</FormError> : null}
 
@@ -444,6 +598,18 @@ async function uploadProof(file: File, slug: string): Promise<string> {
   body.append("slug", slug);
 
   const response = await fetch("/api/upload", { method: "POST", body });
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok) throw new Error(json.error ?? "Upload failed");
+  return json.url as string;
+}
+
+async function uploadDocument(file: File, slug: string): Promise<string> {
+  const body = new FormData();
+  body.append("file", file, file.name);
+  body.append("slug", slug);
+
+  const response = await fetch("/api/upload/document", { method: "POST", body });
   const json = await response.json().catch(() => ({}));
 
   if (!response.ok) throw new Error(json.error ?? "Upload failed");

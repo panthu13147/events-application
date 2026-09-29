@@ -25,6 +25,18 @@ const ERRORS: Record<string, { status: number; message: string }> = {
     status: 403,
     message: "Registration for this event is closed.",
   },
+  // Someone else took the last place while this form was open. Name the fix —
+  // the other slots are still available, so this is a "pick another one", not
+  // a dead end.
+  SLOT_FULL: {
+    status: 409,
+    message:
+      "That option just filled up while you were filling in the form. Pick another one and submit again — your answers are still here.",
+  },
+  SLOT_MISSING: {
+    status: 400,
+    message: "Choose an option before submitting.",
+  },
   DUPLICATE_EMAIL: {
     status: 409,
     message: "This email is already registered for this event. Use /retrieve to get your ticket.",
@@ -128,11 +140,18 @@ export async function POST(
 
   await enqueueEmail({
     to: registration.email,
+    event_id: event.id,
     // The RPC decides the status, so the email always matches what actually
     // happened — no "you're registered" to someone who landed on the waitlist.
     template: registration.status === "WAITLISTED" ? "waitlisted" : "confirmation",
     registration_id: registration.id,
-    payload: await emailPayload(event.id, registration.full_name, registration.code),
+    payload: {
+      ...(await emailPayload(event.id, registration.full_name, registration.code)),
+      // Only meaningful on "confirmation" — a PENDING registration (event has
+      // auto_approve: false) gets told it's under review, not confirmed, and
+      // no QR goes out until an admin actually approves it.
+      pending: registration.status === "PENDING",
+    },
   });
 
   return NextResponse.json({ code: registration.code, status: registration.status });
