@@ -332,13 +332,13 @@ export function renderEmail(template: TemplateName, payload: TemplatePayload): R
         subject: `Your Certificate - ${payload.event_title}`,
         html: layout("Certificate of Participation", [
           `<p style="margin:0 0 4px;">Hi ${escapeHtml(first)},</p>`,
-          `<p style="margin:0 0 12px;">Thank you for attending <strong>${escapeHtml(payload.event_title)}</strong>. We are thrilled to have had you with us!</p>`,
+          `<p style="margin:0 0 12px;">Thank you for participating in <strong>${escapeHtml(payload.event_title)}</strong>. We hope you had a great experience!</p>`,
           `<p style="margin:0;">Please find your certificate attached to this email.</p>`,
         ].join("")),
         text: [
           `Hi ${first},`,
           "",
-          `Thank you for attending ${payload.event_title}. We are thrilled to have had you with us!`,
+          `Thank you for participating in ${payload.event_title}. We hope you had a great experience!`,
           "",
           "Please find your certificate attached to this email.",
         ].join("\n"),
@@ -354,3 +354,4 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
