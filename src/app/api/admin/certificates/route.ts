@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   let query = db
     .from("registrations")
-    .select("id, email, full_name, events!inner(title)")
+    .select("id, email, full_name, answers, events!inner(title, slug)")
     .eq("event_id", eventId)
     .eq("status", "APPROVED");
 
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       payload: {
         name: r.full_name,
         event_title: event?.title || "S4DS Event",
+        event_slug: event?.slug || "",
+        answers: r.answers || {},
       },
     };
   });

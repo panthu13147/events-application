@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email/send";
 import { renderEmail, type TemplateName, type TemplatePayload } from "@/lib/email/templates";
 import { WHATSAPP_ICON_PNG } from "@/lib/email/assets";
 import { generateCertificatePdf } from "@/lib/certificates/generate";
+import { generateKnowbuildCertificatePdf } from "@/lib/certificates/knowbuild";
 
 /**
  * Drains the email queue once.
@@ -45,10 +46,20 @@ export async function processEmailQueue(batch = 5, includeCertificates = false):
           { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
         ];
       } else if (job.template === "certificate") {
+        let contentBytes;
+        const slug = (payload as any).event_slug || "";
+        if (slug.includes("knowbuild")) {
+          const answers = (payload as any).answers || {};
+          const teamName = answers.team_name || answers.Team || answers.team || "";
+          contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
+        } else {
+          contentBytes = await generateCertificatePdf(payload.name);
+        }
+
         attachments = [
           {
             filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-            content: await generateCertificatePdf(payload.name),
+            content: contentBytes,
             contentType: "application/pdf",
           },
         ];
@@ -130,10 +141,20 @@ export async function sendEmailJob(id: string): Promise<boolean> {
         { filename: "whatsapp.png", content: WHATSAPP_ICON_PNG, cid: "whatsapp-icon" },
       ];
     } else if (job.template === "certificate") {
+      let contentBytes;
+      const slug = (payload as any).event_slug || "";
+      if (slug.includes("knowbuild")) {
+        const answers = (payload as any).answers || {};
+        const teamName = answers.team_name || answers.Team || answers.team || "";
+        contentBytes = await generateKnowbuildCertificatePdf(payload.name, teamName);
+      } else {
+        contentBytes = await generateCertificatePdf(payload.name);
+      }
+
       attachments = [
         {
           filename: `${payload.name.replace(/\s+/g, "_")}_Certificate.pdf`,
-          content: await generateCertificatePdf(payload.name),
+          content: contentBytes,
           contentType: "application/pdf",
         },
       ];
